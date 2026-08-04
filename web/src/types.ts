@@ -60,11 +60,17 @@ export interface ImagePayload {
   data: string;
 }
 
+export interface AskAnswerResult {
+  id: string;
+  selectedOptions: string[];
+  customInput?: string;
+}
+
 export type Command =
   | { type: "prompt"; text: string; images?: ImagePayload[] }
   | { type: "steer"; text: string; images?: ImagePayload[] }
   | { type: "followup"; text: string; images?: ImagePayload[] }
-  | { type: "answer"; text: string }
+  | { type: "answer"; text: string; results?: AskAnswerResult[] }
   | { type: "abort" };
 
 export type ServerToClient =

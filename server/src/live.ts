@@ -79,7 +79,20 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("prompt"), text: z.string().min(1), images: imagesSchema }),
   z.object({ type: z.literal("steer"), text: z.string().min(1), images: imagesSchema }),
   z.object({ type: z.literal("followup"), text: z.string().min(1), images: imagesSchema }),
-  z.object({ type: z.literal("answer"), text: z.string().min(1) }),
+  z.object({
+    type: z.literal("answer"),
+    text: z.string().min(1),
+    results: z
+      .array(
+        z.object({
+          id: z.string().min(1).max(200),
+          selectedOptions: z.array(z.string().max(10_000)).max(50),
+          customInput: z.string().max(100_000).optional(),
+        }),
+      )
+      .max(50)
+      .optional(),
+  }),
   z.object({ type: z.literal("abort") }),
 ]);
 

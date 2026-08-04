@@ -136,12 +136,19 @@ export interface ImagePayload {
   data: string;
 }
 
+/** Structured per-question answer for a pending `ask` (native resolution). */
+export interface AskAnswerResult {
+  id: string;
+  selectedOptions: string[];
+  customInput?: string;
+}
+
 /** Control command routed from a browser to a running session's extension. */
 export type Command =
   | { type: "prompt"; text: string; images?: ImagePayload[] }
   | { type: "steer"; text: string; images?: ImagePayload[] }
   | { type: "followup"; text: string; images?: ImagePayload[] }
-  | { type: "answer"; text: string }
+  | { type: "answer"; text: string; results?: AskAnswerResult[] }
   | { type: "abort" };
 
 /** Frames the extension (agent WS client) sends to the server. */

@@ -68,6 +68,13 @@ function strProp(obj: unknown, key: string): string | undefined {
   return undefined;
 }
 
+function prop(obj: unknown, key: string): unknown {
+  if (obj && typeof obj === "object" && key in obj) {
+    return (obj as Record<string, unknown>)[key];
+  }
+  return undefined;
+}
+
 function readHeader(sm: unknown): Header {
   if (sm && typeof sm === "object" && "getHeader" in sm && typeof sm.getHeader === "function") {
     const header: unknown = sm.getHeader();
@@ -93,6 +100,259 @@ function readConfig(): { url?: string; token?: string } {
   }
 }
 
+// --- native ask override --------------------------------------------------
+// Replaces the builtin `ask` tool (extension tools override builtins by name)
+// with a wrapper that DELEGATES to the real AskTool — same schema, description,
+// dialog, timeout, and notification behavior — while racing the terminal
+// dialog against a dashboard-provided answer. Whichever side answers first
+// yields a genuine ask tool result; the loser is torn down. This is what makes
+// answering from the omp-plug app "native" instead of abort-plus-new-message.
+
+interface AskOptionParam {
+  label: string;
+  description?: string;
+}
+interface AskQuestionParam {
+  id: string;
+  question: string;
+  options: AskOptionParam[];
+  multi?: boolean;
+}
+/** Structured per-question answer from the dashboard (wire: `answer.results`). */
+interface AnswerResultWire {
+  id: string;
+  selectedOptions: string[];
+  customInput?: string;
+}
+interface RemoteAnswer {
+  text: string;
+  results?: AnswerResultWire[];
+}
+interface QuestionOutcome {
+  id: string;
+  question: string;
+  options: string[];
+  multi: boolean;
+  selectedOptions: string[];
+  customInput?: string;
+}
+interface AskToolResult {
+  content: { type: "text"; text: string }[];
+  details?: unknown;
+}
+/** Structural slice of the SDK's AskTool that the override consumes. */
+interface BuiltinAskTool {
+  description: string;
+  parameters: unknown;
+  execute(
+    toolCallId: string,
+    params: unknown,
+    signal: AbortSignal | undefined,
+    onUpdate: unknown,
+    ctx: unknown,
+  ): Promise<AskToolResult>;
+}
+interface NativeAskHooks {
+  setRemoteAnswerResolver(fn: ((answer: RemoteAnswer) => void) | null): void;
+  acquireGate(): Promise<() => void>;
+}
+
+function readAnswerResults(raw: unknown): AnswerResultWire[] | undefined {
+  const value = prop(raw, "results");
+  if (!Array.isArray(value)) return undefined;
+  const out: AnswerResultWire[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const id = strProp(item, "id");
+    if (!id) continue;
+    const rawSelected = prop(item, "selectedOptions");
+    const selectedOptions = Array.isArray(rawSelected)
+      ? rawSelected.filter((s): s is string => typeof s === "string")
+      : [];
+    const customInput = strProp(item, "customInput");
+    out.push(customInput !== undefined ? { id, selectedOptions, customInput } : { id, selectedOptions });
+  }
+  return out.length ? out : undefined;
+}
+
+function readQuestions(params: unknown): AskQuestionParam[] {
+  const value = prop(params, "questions");
+  if (!Array.isArray(value)) return [];
+  const out: AskQuestionParam[] = [];
+  for (const item of value) {
+    const id = strProp(item, "id");
+    const question = strProp(item, "question");
+    if (!id || !question) continue;
+    const rawOptions = prop(item, "options");
+    const options: AskOptionParam[] = [];
+    if (Array.isArray(rawOptions)) {
+      for (const o of rawOptions) {
+        const label = strProp(o, "label");
+        if (label) options.push({ label });
+      }
+    }
+    out.push({ id, question, options, multi: prop(item, "multi") === true });
+  }
+  return out;
+}
+
+// Mirrors the builtin's formatSingleQuestionResponse (not exported by the SDK).
+function formatSingleAnswer(r: QuestionOutcome): string {
+  const parts: string[] = [];
+  if (r.selectedOptions.length > 0) parts.push(`User selected: ${r.selectedOptions.join(", ")}`);
+  if (r.customInput !== undefined) {
+    parts.push(
+      r.customInput.includes("\n")
+        ? `User provided custom input:\n${r.customInput.split("\n").map((l) => `  ${l}`).join("\n")}`
+        : `User provided custom input: ${r.customInput}`,
+    );
+  }
+  return parts.length > 0 ? parts.join("\n") : "User cancelled the selection";
+}
+
+// Mirrors the builtin's formatQuestionResult (not exported by the SDK).
+function formatAnswerLine(r: QuestionOutcome): string {
+  if (r.customInput !== undefined) return `${r.id}: "${r.customInput}"`;
+  if (r.selectedOptions.length > 0) {
+    return r.multi ? `${r.id}: [${r.selectedOptions.join(", ")}]` : `${r.id}: ${r.selectedOptions[0]}`;
+  }
+  return `${r.id}: (cancelled)`;
+}
+
+function remoteAskResult(questions: AskQuestionParam[], answer: RemoteAnswer): AskToolResult {
+  const wire = new Map<string, AnswerResultWire>();
+  for (const r of answer.results ?? []) wire.set(r.id, r);
+
+  // Legacy text-only answer to a multi-question ask has no per-question
+  // mapping — return the combined text verbatim.
+  if (questions.length > 1 && wire.size === 0) {
+    return { content: [{ type: "text", text: `User answers:\n${answer.text}` }] };
+  }
+
+  const outcomes: QuestionOutcome[] = questions.map((q) => {
+    const labels = q.options.map((o) => o.label);
+    const w = wire.get(q.id);
+    let selectedOptions = (w?.selectedOptions ?? []).filter((l) => labels.includes(l));
+    let customInput = w?.customInput?.trim() ? w.customInput : undefined;
+    if (!w && questions.length === 1) {
+      if (labels.includes(answer.text)) selectedOptions = [answer.text];
+      else customInput = answer.text;
+    }
+    return {
+      id: q.id,
+      question: q.question,
+      options: labels,
+      multi: q.multi === true,
+      selectedOptions,
+      customInput,
+    };
+  });
+
+  if (outcomes.length === 1) {
+    const r = outcomes[0];
+    // details mirror AskToolDetails so the TUI's native ask renderer applies.
+    return {
+      content: [{ type: "text", text: formatSingleAnswer(r) }],
+      details: {
+        question: r.question,
+        options: r.options,
+        multi: r.multi,
+        selectedOptions: r.selectedOptions,
+        customInput: r.customInput,
+      },
+    };
+  }
+  return {
+    content: [{ type: "text", text: `User answers:\n${outcomes.map(formatAnswerLine).join("\n")}` }],
+    details: { results: outcomes },
+  };
+}
+
+async function raceAsk(
+  builtin: BuiltinAskTool,
+  hooks: NativeAskHooks,
+  toolCallId: string,
+  params: unknown,
+  signal: AbortSignal | undefined,
+  onUpdate: unknown,
+  toolCtx: unknown,
+): Promise<AskToolResult> {
+  const localAbort = new AbortController();
+  const combined = signal ? AbortSignal.any([signal, localAbort.signal]) : localAbort.signal;
+  // Both settlement paths are captured up front so the losing leg can never
+  // surface as an unhandled rejection.
+  const local = builtin.execute(toolCallId, params, combined, onUpdate, toolCtx).then(
+    (r) => ({ kind: "local" as const, r }),
+    (e) => ({ kind: "error" as const, e: e as Error }),
+  );
+  const remote = new Promise<RemoteAnswer>((resolve) => hooks.setRemoteAnswerResolver(resolve));
+  try {
+    const winner = await Promise.race([local, remote.then((a) => ({ kind: "remote" as const, a }))]);
+    if (winner.kind === "remote") {
+      localAbort.abort(); // dismiss the TUI dialog
+      await local; // wait for its teardown; the rejection is already captured
+      return remoteAskResult(readQuestions(params), winner.a);
+    }
+    if (winner.kind === "error") throw winner.e;
+    return winner.r;
+  } finally {
+    hooks.setRemoteAnswerResolver(null);
+  }
+}
+
+function registerNativeAsk(pi: ExtensionAPI, hooks: NativeAskHooks): boolean {
+  let builtin: BuiltinAskTool;
+  try {
+    const sdk = prop(pi, "pi");
+    const ctor = prop(sdk, "AskTool");
+    const settings = prop(sdk, "settings");
+    if (typeof ctor !== "function" || !settings) return false;
+    // Library boundary: the SDK is resolved at runtime; assert the constructor
+    // against our structural slice after the runtime checks above.
+    const AskToolCtor = ctor as unknown as new (session: unknown) => BuiltinAskTool;
+    // AskTool reads only `settings` (ask.notify / ask.timeout / speech.enabled)
+    // and optional `getPlanModeState` from its ToolSession — shim it with the
+    // SDK's disk-backed settings singleton so behavior matches the builtin.
+    builtin = new AskToolCtor({ settings, hasUI: true });
+    if (typeof builtin.execute !== "function" || !builtin.description || !builtin.parameters) return false;
+  } catch {
+    // SDK surface changed — skip the override; the abort-based fallback stays.
+    return false;
+  }
+  try {
+    const definition = {
+      name: "ask",
+      label: "Ask",
+      description: builtin.description,
+      parameters: builtin.parameters, // builtin arktype schema, passed through
+      approval: "read",
+      // Headless sessions must not expose `ask` (the builtin is gated on
+      // hasUI); session_start activates it for interactive sessions only.
+      defaultInactive: true,
+      execute: async (
+        toolCallId: string,
+        params: unknown,
+        signal: AbortSignal | undefined,
+        onUpdate: unknown,
+        toolCtx: unknown,
+      ): Promise<AskToolResult> => {
+        const release = await hooks.acquireGate();
+        try {
+          return await raceAsk(builtin, hooks, toolCallId, params, signal, onUpdate, toolCtx);
+        } finally {
+          release();
+        }
+      },
+    };
+    // Library boundary: parameters/execute are typed structurally here while
+    // registerTool expects the SDK's schema generics.
+    pi.registerTool(definition as unknown as Parameters<ExtensionAPI["registerTool"]>[0]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default function ompReport(pi: ExtensionAPI): void {
   const config = readConfig();
   const base = (process.env.OMP_PLUG_URL || config.url || "ws://127.0.0.1:7317").replace(/\/+$/, "");
@@ -104,9 +364,31 @@ export default function ompReport(pi: ExtensionAPI): void {
   let reconnect: unknown = null;
   let meta: LiveSessionMeta | null = null;
   let closed = false;
-  // Answer for a pending `ask` that required aborting the blocked tool first;
-  // delivered once the aborted turn unwinds (agent_end).
+  // Fallback answer for a pending `ask` when the native override is not in
+  // play: aborts the blocked tool, then delivers on agent_end.
   let pendingAnswer: string | null = null;
+  // Native path: while the overridden `ask` tool is executing, this resolves
+  // its remote-answer race leg with a dashboard-provided answer.
+  let resolveRemoteAnswer: ((answer: RemoteAnswer) => void) | null = null;
+  // Serializes overridden `ask` executions — the interactive dialog surface
+  // has no queue (the builtin runs `concurrency: "exclusive"` for the same
+  // reason), so a second concurrent ask must wait for the first.
+  let askGate: Promise<void> = Promise.resolve();
+  // Set when the ask override registered; gates per-session activation.
+  const nativeAsk = registerNativeAsk(pi, {
+    setRemoteAnswerResolver: (fn) => {
+      resolveRemoteAnswer = fn;
+    },
+    acquireGate: async () => {
+      const prev = askGate;
+      let release!: () => void;
+      askGate = new Promise<void>((r) => {
+        release = r;
+      });
+      await prev;
+      return release;
+    },
+  });
 
   function announce(): void {
     if (socket?.readyState === WS_OPEN && meta) {
@@ -149,13 +431,17 @@ export default function ompReport(pi: ExtensionAPI): void {
         return;
       }
       const text = strProp(raw, "text");
-      // An `answer` resolves a pending interactive `ask`. There is no extension
-      // API to feed the blocked TUI dialog directly, so mirror what a terminal
-      // user does: cancel the dialog (abort unwinds the blocked tool) and hand
-      // the answer to the agent as the next user message. When the agent is
-      // already idle (ask resolved locally in the meantime), just send it.
       if (type === "answer") {
         if (!text) return;
+        // Native path: the overridden `ask` tool is blocked on its dialog race —
+        // resolve it directly so the answer becomes a genuine tool result.
+        if (resolveRemoteAnswer) {
+          resolveRemoteAnswer({ text, results: readAnswerResults(raw) });
+          return;
+        }
+        // Fallback (override unavailable, or the ask resolved in the meantime):
+        // mirror what a terminal user does — cancel the blocked dialog and hand
+        // the answer to the agent as the next user message; when idle, just send.
         if (ctx && !ctx.isIdle()) {
           pendingAnswer = text;
           ctx.abort();
@@ -254,8 +540,22 @@ export default function ompReport(pi: ExtensionAPI): void {
     };
   }
 
+  // The overriding `ask` registers defaultInactive so headless sessions never
+  // expose it (matching the builtin's hasUI gate); activate it here.
+  async function ensureAskActive(): Promise<void> {
+    if (!nativeAsk || !ctx?.hasUI) return;
+    try {
+      const active = pi.getActiveTools();
+      if (!active.includes("ask")) await pi.setActiveTools([...active, "ask"]);
+    } catch {
+      // activation failed — the tool stays inactive; the fallback answer path
+      // (abort + user message) still functions.
+    }
+  }
+
   pi.on("session_start", async (_event, sessionCtx) => {
     ctx = sessionCtx as unknown as SessionCtx;
+    await ensureAskActive();
     if (!ctx.hasUI && !process.env.OMP_PLUG_FORCE) return;
     refreshMeta();
     if (!meta) return;
@@ -273,6 +573,7 @@ export default function ompReport(pi: ExtensionAPI): void {
         // ignore
       }
     }
+    await ensureAskActive();
     announce();
   });
 

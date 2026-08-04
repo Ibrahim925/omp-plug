@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchTranscript, sendCommand, subscribeLive } from "../api.ts";
 import { navigate } from "../router.ts";
-import type { ImagePayload, LiveEvent, TranscriptResponse } from "../types.ts";
+import type { AskAnswerResult, ImagePayload, LiveEvent, TranscriptResponse } from "../types.ts";
 import { Transcript } from "./Message.tsx";
 
 const REFETCH_THROTTLE_MS = 1200;
@@ -165,10 +165,10 @@ export function SessionView({ id }: { id: string }) {
     }
   }
 
-  async function onAnswer(text: string) {
+  async function onAnswer(text: string, results?: AskAnswerResult[]) {
     stick.current = true;
     try {
-      await sendCommand(id, { type: "answer", text });
+      await sendCommand(id, { type: "answer", text, results });
       setWorking(true);
     } catch (err) {
       setError((err as Error).message);

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import type { WireBlock, WireMessage } from "../types.ts";
+import type { AskAnswerResult, WireBlock, WireMessage } from "../types.ts";
 
 const ROLE_LABEL: Record<string, string> = {
   user: "You",
@@ -187,7 +187,7 @@ function AskForm({
   onAnswer,
 }: {
   questions: AskQuestion[];
-  onAnswer: (text: string) => Promise<void>;
+  onAnswer: (text: string, results?: AskAnswerResult[]) => Promise<void>;
 }) {
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [custom, setCustom] = useState<Record<string, string>>({});
@@ -216,11 +216,24 @@ function AskForm({
     return questions.map((q) => `${q.question}: ${answerFor(q).join(", ")}`).join("\n");
   }
 
+  // Structured per-question answers so the extension can resolve the pending
+  // ask natively (selected labels vs custom input, per question id).
+  function structured(): AskAnswerResult[] {
+    return questions.map((q) => {
+      const picks = selected[q.id] ?? [];
+      const selectedOptions = picks.filter((p) => p !== OTHER);
+      const customRaw = picks.includes(OTHER) ? (custom[q.id] ?? "").trim() : "";
+      return customRaw
+        ? { id: q.id, selectedOptions, customInput: customRaw }
+        : { id: q.id, selectedOptions };
+    });
+  }
+
   async function submit() {
     if (!ready || busy) return;
     setBusy(true);
     try {
-      await onAnswer(compose());
+      await onAnswer(compose(), structured());
     } finally {
       setBusy(false);
     }
@@ -310,7 +323,7 @@ export interface MessageProps {
   results: Map<string, WireMessage>;
   controllable: boolean;
   isLast: boolean;
-  onAnswer: (text: string) => Promise<void>;
+  onAnswer: (text: string, results?: AskAnswerResult[]) => Promise<void>;
 }
 
 export function Message({ message, results, controllable, isLast, onAnswer }: MessageProps) {
@@ -357,7 +370,7 @@ export function Transcript({
 }: {
   messages: WireMessage[];
   controllable: boolean;
-  onAnswer: (text: string) => Promise<void>;
+  onAnswer: (text: string, results?: AskAnswerResult[]) => Promise<void>;
 }) {
   const { results, top } = useMemo(() => {
     const callIds = new Set<string>();
