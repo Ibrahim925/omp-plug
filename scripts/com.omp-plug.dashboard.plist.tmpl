@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Template. Do not edit the installed copy by hand — rerun scripts/install.sh.
+     Placeholders (__BUN__, __REPO__, __HOME__) are substituted at install time. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.omp-plug.dashboard</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>__BUN__</string>
+    <string>run</string>
+    <string>__REPO__/server/src/index.ts</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>__HOME__</string>
+    <key>PATH</key>
+    <string>__HOME__/.bun/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HOST</key>
+    <string>0.0.0.0</string>
+    <key>PORT</key>
+    <string>7317</string>
+    <!-- Secret is read from ~/.omp-plug.json (single source of truth). -->
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/omp-plug.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/omp-plug.log</string>
+</dict>
+</plist>

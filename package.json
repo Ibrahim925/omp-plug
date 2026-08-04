@@ -1,0 +1,12 @@
+{
+  "name": "omp-plug",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["server", "web"],
+  "scripts": {
+    "build": "cd web && bun run build",
+    "start": "bun run server/src/index.ts",
+    "dev:web": "cd web && bun run dev",
+    "dev:server": "bun --watch server/src/index.ts"
+  }
+}
