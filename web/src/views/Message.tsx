@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import type { WireBlock, WireMessage } from "../types.ts";
 
@@ -96,15 +98,37 @@ function summarize(message: WireMessage | undefined): string {
   return clipped + extra;
 }
 
-function Block({ block }: { block: WireBlock }) {
+// Rendered markdown for prose (assistant/user text, thinking). GFM tables/
+// strikethrough/task-lists on; links open in a new tab. react-markdown escapes
+// raw HTML by default, so no sanitization step is needed.
+function Markdown({ text }: { text: string }) {
+  return (
+    <div className="md">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          a: ({ node: _node, ...props }) => (
+            <a {...props} target="_blank" rel="noopener noreferrer" />
+          ),
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+// `plain` keeps tool output verbatim (monospace, no markdown); message prose
+// renders as markdown.
+function Block({ block, plain = false }: { block: WireBlock; plain?: boolean }) {
   switch (block.type) {
     case "text":
-      return <div className="text">{block.text}</div>;
+      return plain ? <div className="text">{block.text}</div> : <Markdown text={block.text} />;
     case "thinking":
       return (
         <details className="thinking">
           <summary>thinking</summary>
-          <div className="text">{block.text}</div>
+          <Markdown text={block.text} />
         </details>
       );
     case "image": {
@@ -146,7 +170,7 @@ function ToolUnit({ call, result }: { call: ToolCallBlock; result?: WireMessage 
           {result && (
             <div className={`tool-output${result.isError ? " error" : ""}`}>
               {result.content.map((b, i) => (
-                <Block key={i} block={b} />
+                <Block key={i} block={b} plain />
               ))}
             </div>
           )}
