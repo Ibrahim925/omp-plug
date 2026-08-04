@@ -39,7 +39,7 @@ export function SessionList() {
       <header className="topbar">
         <h1>omp</h1>
         <span className="subtle">
-          {sessions ? `${sessions.length} sessions` : "loading…"}
+          {sessions ? `${sessions.length} sessions` : "\u00a0"}
           {liveCount > 0 && <span className="live-count"> · {liveCount} live</span>}
         </span>
       </header>
@@ -71,6 +71,17 @@ export function SessionList() {
           </li>
         ))}
       </ul>
+
+      {!sessions && !error && (
+        <div className="list">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div className="skel-row" key={i}>
+              <div className="skeleton skel-line" style={{ width: `${72 - i * 4}%` }} />
+              <div className="skeleton skel-line" style={{ width: "34%", height: 10 }} />
+            </div>
+          ))}
+        </div>
+      )}
 
       {sessions?.length === 0 && <div className="empty">No sessions found.</div>}
     </div>

@@ -145,7 +145,16 @@ export function SessionView({ id }: { id: string }) {
       {error && <div className="banner error">{error}</div>}
 
       <div className="transcript" onScroll={onScroll}>
-        {!data && !error && <div className="empty">loading…</div>}
+        {!data && !error && (
+          <div>
+            {[70, 92, 48, 80].map((w, i) => (
+              <div className="msg" key={i}>
+                <div className="skeleton skel-line" style={{ width: 64, height: 10, marginBottom: 8 }} />
+                <div className="skeleton skel-line" style={{ width: `${w}%` }} />
+              </div>
+            ))}
+          </div>
+        )}
         {data?.messages.map((m, i) => (
           <Message key={i} message={m} />
         ))}
