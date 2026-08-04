@@ -122,11 +122,18 @@ export type LiveEvent =
   | { kind: "turnEnd" }
   | { kind: "idle" };
 
+/** Inline image attached to a control command (base64, no data: prefix). */
+export interface ImagePayload {
+  mimeType: string;
+  data: string;
+}
+
 /** Control command routed from a browser to a running session's extension. */
 export type Command =
-  | { type: "prompt"; text: string }
-  | { type: "steer"; text: string }
-  | { type: "followup"; text: string }
+  | { type: "prompt"; text: string; images?: ImagePayload[] }
+  | { type: "steer"; text: string; images?: ImagePayload[] }
+  | { type: "followup"; text: string; images?: ImagePayload[] }
+  | { type: "answer"; text: string }
   | { type: "abort" };
 
 /** Frames the extension (agent WS client) sends to the server. */

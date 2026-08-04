@@ -306,44 +306,180 @@ body {
   margin-top: 7px;
 }
 
-/* ---- tool call ---- */
-.toolcall {
-  padding: 9px 12px;
+/* ---- tool unit (Codex-style: compact header, output one click away) ---- */
+.tool {
   border: 1px solid var(--border);
   border-radius: var(--r);
   background: var(--panel);
+  overflow: hidden;
+}
+.tool-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  width: 100%;
+  padding: 7px 11px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
   font-family: var(--mono);
   font-size: 12.5px;
+  color: var(--fg);
 }
-.toolcall-head {
-  display: flex;
-  gap: 9px;
-  align-items: baseline;
-  flex-wrap: wrap;
+.tool-head:hover {
+  background: var(--hover);
+}
+.tool-caret {
+  color: var(--fg-faint);
+  flex: none;
+}
+.tool-status {
+  flex: none;
+}
+.tool-status-ok {
+  color: var(--success);
+}
+.tool-status-error {
+  color: var(--danger);
+}
+.tool-status-pending {
+  color: var(--fg-faint);
 }
 .tool-name {
   color: var(--accent);
   font-weight: 600;
+  flex: none;
 }
 .tool-intent {
   color: var(--fg-muted);
   font-family: var(--sans);
+  flex: none;
 }
-.tool-args > summary {
-  cursor: pointer;
+.tool-summary {
   color: var(--fg-faint);
-  margin-top: 7px;
+  font-family: var(--sans);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: auto;
+  padding-left: 8px;
+}
+.tool-body {
+  padding: 0 11px 10px;
+  border-top: 1px solid var(--border);
+}
+.tool-args-pre {
+  color: var(--fg-faint);
+}
+.tool-output.error .text,
+.tool-output.error .raw {
+  color: var(--danger);
+}
+
+/* ---- ask tool (interactive) ---- */
+.ask {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--panel);
+  padding: 12px 14px;
+}
+.ask-live {
+  border-color: var(--accent);
+}
+.ask-q + .ask-q {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.ask-header {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-faint);
+  margin-bottom: 4px;
+}
+.ask-question {
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.ask-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ask-option {
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel-2);
+  cursor: pointer;
+  text-align: left;
+  color: var(--fg);
+  font-size: 13px;
+}
+.ask-option:hover {
+  border-color: var(--accent-weak);
+}
+.ask-option.on {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+}
+.ask-option.static {
+  cursor: default;
+}
+.ask-mark {
+  flex: none;
+  color: var(--accent);
+}
+.ask-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ask-option-label {
+  font-weight: 500;
+}
+.ask-recommended {
+  color: var(--success);
+  font-weight: 400;
   font-size: 12px;
-  list-style: none;
 }
-.tool-args > summary::-webkit-details-marker {
-  display: none;
+.ask-option-desc {
+  color: var(--fg-muted);
+  font-size: 12px;
 }
-.tool-args > summary::before {
-  content: "▸ ";
+.ask-custom {
+  margin-top: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel-2);
+  color: var(--fg);
+  font: inherit;
 }
-.tool-args[open] > summary::before {
-  content: "▾ ";
+.ask-custom:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.ask-submit {
+  margin-top: 14px;
+  padding: 9px 18px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ask-submit:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 pre {
   margin: 8px 0 0;
@@ -457,6 +593,62 @@ pre {
   to {
     opacity: 0;
   }
+}
+
+/* ---- composer wrap + attachments ---- */
+.composer-wrap {
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(16px);
+}
+.composer-wrap .composer {
+  border-top: none;
+  background: none;
+  backdrop-filter: none;
+}
+.attachments {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 12px 0;
+}
+.attachment {
+  position: relative;
+  width: 56px;
+  height: 56px;
+}
+.attachment img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+}
+.attachment-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--fg);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.composer-btn.attach {
+  width: 42px;
+  padding: 0;
+  font-size: 22px;
+  font-weight: 400;
+  background: var(--panel);
+  color: var(--fg-muted);
+  border-color: var(--border);
 }
 
 /* ---- composer ---- */

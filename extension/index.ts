@@ -119,6 +119,18 @@ export default function ompReport(pi: ExtensionAPI): void {
     }
   }
 
+  function readImages(raw: unknown): { type: "image"; data: string; mimeType: string }[] {
+    const value = (raw as Record<string, unknown>).images;
+    if (!Array.isArray(value)) return [];
+    const out: { type: "image"; data: string; mimeType: string }[] = [];
+    for (const item of value) {
+      const data = strProp(item, "data");
+      const mimeType = strProp(item, "mimeType");
+      if (data && mimeType) out.push({ type: "image", data, mimeType });
+    }
+    return out;
+  }
+
   function applyCommand(raw: unknown): void {
     if (!raw || typeof raw !== "object" || !("type" in raw)) return;
     const type = (raw as Record<string, unknown>).type;
@@ -128,10 +140,24 @@ export default function ompReport(pi: ExtensionAPI): void {
         return;
       }
       const text = strProp(raw, "text");
-      if (!text) return;
-      if (type === "steer") pi.sendUserMessage(text, { deliverAs: "steer" });
-      else if (type === "followup") pi.sendUserMessage(text, { deliverAs: "followUp" });
-      else if (type === "prompt") pi.sendUserMessage(text);
+      // An `answer` resolves an interactive prompt — delivered as a plain user
+      // message so the session consumes it as the reply (steer on a live turn).
+      if (type === "answer") {
+        if (text) pi.sendUserMessage(text);
+        return;
+      }
+      const images = readImages(raw);
+      if (!text && images.length === 0) return;
+      // Multimodal: when images are attached, build a content array (text block
+      // first, then images); otherwise keep the plain-string fast path.
+      const content =
+        images.length > 0
+          ? [...(text ? [{ type: "text" as const, text }] : []), ...images]
+          : text;
+      if (!content) return;
+      if (type === "steer") pi.sendUserMessage(content, { deliverAs: "steer" });
+      else if (type === "followup") pi.sendUserMessage(content, { deliverAs: "followUp" });
+      else if (type === "prompt") pi.sendUserMessage(content);
     } catch {
       // never let a bad command take down the session
     }

@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchTranscript, sendCommand, subscribeLive } from "../api.ts";
 import { navigate } from "../router.ts";
-import type { LiveEvent, TranscriptResponse } from "../types.ts";
-import { Message } from "./Message.tsx";
+import type { ImagePayload, LiveEvent, TranscriptResponse } from "../types.ts";
+import { Transcript } from "./Message.tsx";
 
 const REFETCH_THROTTLE_MS = 1200;
 const FALLBACK_POLL_MS = 5000;
@@ -16,11 +16,13 @@ export function SessionView({ id }: { id: string }) {
   const [tool, setTool] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [attachments, setAttachments] = useState<(ImagePayload & { url: string })[]>([]);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const lastFetch = useRef(0);
   const refetchTimer = useRef<number | undefined>(undefined);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const doFetch = useCallback(async () => {
     lastFetch.current = Date.now();
@@ -102,19 +104,67 @@ export function SessionView({ id }: { id: string }) {
     stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
   }
 
+  async function addFiles(files: FileList | File[]) {
+    const picked = [...files].filter((f) => f.type.startsWith("image/"));
+    const read = await Promise.all(
+      picked.map(
+        (file) =>
+          new Promise<(ImagePayload & { url: string }) | null>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const url = String(reader.result);
+              const comma = url.indexOf(",");
+              resolve(comma < 0 ? null : { mimeType: file.type, data: url.slice(comma + 1), url });
+            };
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(file);
+          }),
+      ),
+    );
+    const next = read.filter((x): x is ImagePayload & { url: string } => x !== null);
+    if (next.length) setAttachments((prev) => [...prev, ...next].slice(0, 8));
+  }
+
+  function onPaste(e: React.ClipboardEvent) {
+    const files = [...e.clipboardData.items]
+      .filter((it) => it.kind === "file")
+      .map((it) => it.getAsFile())
+      .filter((f): f is File => f !== null);
+    if (files.length) {
+      e.preventDefault();
+      addFiles(files);
+    }
+  }
+
   async function submit() {
     const text = input.trim();
-    if (!text || sending) return;
+    if ((!text && attachments.length === 0) || sending) return;
     setSending(true);
     stick.current = true;
     try {
-      await sendCommand(id, { type: working ? "steer" : "prompt", text });
+      const images: ImagePayload[] | undefined = attachments.length
+        ? attachments.map(({ mimeType, data }) => ({ mimeType, data }))
+        : undefined;
+      // A prompt requires text; when only images are attached, carry a nudge.
+      const body = text || "(see attached image)";
+      await sendCommand(id, { type: working ? "steer" : "prompt", text: body, images });
       setInput("");
+      setAttachments([]);
       setWorking(true);
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setSending(false);
+    }
+  }
+
+  async function onAnswer(text: string) {
+    stick.current = true;
+    try {
+      await sendCommand(id, { type: "answer", text });
+      setWorking(true);
+    } catch (err) {
+      setError((err as Error).message);
     }
   }
 
@@ -155,9 +205,9 @@ export function SessionView({ id }: { id: string }) {
             ))}
           </div>
         )}
-        {data?.messages.map((m, i) => (
-          <Message key={i} message={m} />
-        ))}
+        {data && (
+          <Transcript messages={data.messages} controllable={data.controllable} onAnswer={onAnswer} />
+        )}
 
         {preview && (
           <div className="msg" data-role="assistant">
@@ -178,27 +228,70 @@ export function SessionView({ id }: { id: string }) {
       </div>
 
       {data?.controllable && (
-        <div className="composer">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                submit();
-              }
-            }}
-            placeholder={working ? "Steer the agent…" : "Message…"}
-            rows={1}
-          />
-          {working && (
-            <button className="composer-btn stop" onClick={stop} aria-label="Stop">
-              ■
-            </button>
+        <div className="composer-wrap">
+          {attachments.length > 0 && (
+            <div className="attachments">
+              {attachments.map((att, i) => (
+                <div className="attachment" key={i}>
+                  <img src={att.url} alt="attachment" />
+                  <button
+                    type="button"
+                    className="attachment-remove"
+                    aria-label="Remove attachment"
+                    onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
-          <button className="composer-btn send" onClick={submit} disabled={sending || !input.trim()}>
-            {working ? "Steer" : "Send"}
-          </button>
+          <div className="composer">
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                if (e.target.files) addFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              className="composer-btn attach"
+              onClick={() => fileInput.current?.click()}
+              aria-label="Attach image"
+            >
+              +
+            </button>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onPaste={onPaste}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  submit();
+                }
+              }}
+              placeholder={working ? "Steer the agent…" : "Message…"}
+              rows={1}
+            />
+            {working && (
+              <button className="composer-btn stop" onClick={stop} aria-label="Stop">
+                ■
+              </button>
+            )}
+            <button
+              className="composer-btn send"
+              onClick={submit}
+              disabled={sending || (!input.trim() && attachments.length === 0)}
+            >
+              {working ? "Steer" : "Send"}
+            </button>
+          </div>
         </div>
       )}
 

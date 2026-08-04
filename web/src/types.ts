@@ -49,10 +49,16 @@ export type LiveEvent =
   | { kind: "turnEnd" }
   | { kind: "idle" };
 
+export interface ImagePayload {
+  mimeType: string;
+  data: string;
+}
+
 export type Command =
-  | { type: "prompt"; text: string }
-  | { type: "steer"; text: string }
-  | { type: "followup"; text: string }
+  | { type: "prompt"; text: string; images?: ImagePayload[] }
+  | { type: "steer"; text: string; images?: ImagePayload[] }
+  | { type: "followup"; text: string; images?: ImagePayload[] }
+  | { type: "answer"; text: string }
   | { type: "abort" };
 
 export type ServerToClient =

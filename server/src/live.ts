@@ -54,10 +54,18 @@ const agentInboundSchema = z.discriminatedUnion("type", [
 
 const clientInboundSchema = z.object({ type: z.literal("subscribe"), sessionId: z.string() });
 
+const imageSchema = z.object({
+  // base64 payload, no data: prefix. Cap ~8MB decoded (base64 is ~4/3 of raw).
+  mimeType: z.string().min(1).max(100),
+  data: z.string().min(1).max(11_000_000),
+});
+const imagesSchema = z.array(imageSchema).max(8).optional();
+
 export const commandSchema: z.ZodType<Command> = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("prompt"), text: z.string().min(1) }),
-  z.object({ type: z.literal("steer"), text: z.string().min(1) }),
-  z.object({ type: z.literal("followup"), text: z.string().min(1) }),
+  z.object({ type: z.literal("prompt"), text: z.string().min(1), images: imagesSchema }),
+  z.object({ type: z.literal("steer"), text: z.string().min(1), images: imagesSchema }),
+  z.object({ type: z.literal("followup"), text: z.string().min(1), images: imagesSchema }),
+  z.object({ type: z.literal("answer"), text: z.string().min(1) }),
   z.object({ type: z.literal("abort") }),
 ]);
 
