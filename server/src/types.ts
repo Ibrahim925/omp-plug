@@ -52,7 +52,7 @@ export interface Sdk {
     entries: unknown[],
     leafId: string | null | undefined,
     byId: unknown,
-    options: { transcript?: boolean },
+    options: { transcript?: boolean; keepDanglingToolCalls?: boolean },
   ): TranscriptContext;
 }
 

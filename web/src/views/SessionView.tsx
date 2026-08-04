@@ -92,11 +92,15 @@ export function SessionView({ id }: { id: string }) {
 
   useEffect(() => subscribeLive(id, onEvent), [id, onEvent]);
 
+  // Fallback poll: (a) live but non-controllable sessions have no event stream
+  // to trigger refetches; (b) a long-running tool (an `ask` awaiting input) is
+  // silent after toolStart, so a refetch that raced the session-file write
+  // would otherwise never be retried.
   useEffect(() => {
-    if (!data?.live || data.controllable) return;
+    if (!data?.live || (data.controllable && tool === null)) return;
     const timer = setInterval(doFetch, FALLBACK_POLL_MS);
     return () => clearInterval(timer);
-  }, [data?.live, data?.controllable, doFetch]);
+  }, [data?.live, data?.controllable, tool, doFetch]);
 
   useEffect(() => {
     if (stick.current) bottomRef.current?.scrollIntoView();

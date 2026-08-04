@@ -309,10 +309,11 @@ export interface MessageProps {
   message: WireMessage;
   results: Map<string, WireMessage>;
   controllable: boolean;
+  isLast: boolean;
   onAnswer: (text: string) => Promise<void>;
 }
 
-export function Message({ message, results, controllable, onAnswer }: MessageProps) {
+export function Message({ message, results, controllable, isLast, onAnswer }: MessageProps) {
   const label = ROLE_LABEL[message.role] ?? message.role;
   const cls = message.isError ? "msg error" : "msg";
   // Assistant output flows label-free (Codex-style); other roles keep a tag.
@@ -332,7 +333,9 @@ export function Message({ message, results, controllable, onAnswer }: MessagePro
           if (block.name === "ask") {
             const questions = asQuestions(block.arguments);
             if (questions) {
-              if (!result && controllable)
+              // Answerable only on the transcript's last message: an unpaired
+              // ask elsewhere is a dead branch artifact, not a live question.
+              if (!result && controllable && isLast)
                 return <AskForm key={i} questions={questions} onAnswer={onAnswer} />;
               if (!result) return <AskStatic key={i} questions={questions} />;
             }
@@ -374,7 +377,14 @@ export function Transcript({
   return (
     <>
       {top.map((m, i) => (
-        <Message key={i} message={m} results={results} controllable={controllable} onAnswer={onAnswer} />
+        <Message
+          key={i}
+          message={m}
+          results={results}
+          controllable={controllable}
+          isLast={i === top.length - 1}
+          onAnswer={onAnswer}
+        />
       ))}
     </>
   );

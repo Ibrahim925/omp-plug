@@ -44,6 +44,7 @@ interface SessionCtx {
   hasUI: boolean;
   cwd?: string;
   abort(): void;
+  isIdle(): boolean;
   sessionManager: unknown;
   model?: unknown;
   setTimeout(fn: () => void, ms: number): unknown;
@@ -103,6 +104,9 @@ export default function ompReport(pi: ExtensionAPI): void {
   let reconnect: unknown = null;
   let meta: LiveSessionMeta | null = null;
   let closed = false;
+  // Answer for a pending `ask` that required aborting the blocked tool first;
+  // delivered once the aborted turn unwinds (agent_end).
+  let pendingAnswer: string | null = null;
 
   function announce(): void {
     if (socket?.readyState === WS_OPEN && meta) {
@@ -145,10 +149,19 @@ export default function ompReport(pi: ExtensionAPI): void {
         return;
       }
       const text = strProp(raw, "text");
-      // An `answer` resolves an interactive prompt — delivered as a plain user
-      // message so the session consumes it as the reply (steer on a live turn).
+      // An `answer` resolves a pending interactive `ask`. There is no extension
+      // API to feed the blocked TUI dialog directly, so mirror what a terminal
+      // user does: cancel the dialog (abort unwinds the blocked tool) and hand
+      // the answer to the agent as the next user message. When the agent is
+      // already idle (ask resolved locally in the meantime), just send it.
       if (type === "answer") {
-        if (text) pi.sendUserMessage(text);
+        if (!text) return;
+        if (ctx && !ctx.isIdle()) {
+          pendingAnswer = text;
+          ctx.abort();
+        } else {
+          pi.sendUserMessage(text);
+        }
         return;
       }
       const images = readImages(raw);
@@ -265,7 +278,15 @@ export default function ompReport(pi: ExtensionAPI): void {
 
   // --- live event forwarding ---
   pi.on("agent_start", async () => emit({ kind: "turnStart" }));
-  pi.on("agent_end", async () => emit({ kind: "idle" }));
+  pi.on("agent_end", async () => {
+    emit({ kind: "idle" });
+    if (pendingAnswer !== null) {
+      const text = pendingAnswer;
+      pendingAnswer = null;
+      // Let the aborted turn fully unwind before starting the answer turn.
+      ctx?.setTimeout(() => pi.sendUserMessage(text), 250);
+    }
+  });
   pi.on("turn_end", async () => emit({ kind: "turnEnd" }));
   pi.on("message_end", async () => emit({ kind: "turnEnd" }));
   pi.on("message_update", async (event) => {

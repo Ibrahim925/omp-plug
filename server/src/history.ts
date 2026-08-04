@@ -115,7 +115,13 @@ export async function getTranscript(id: string): Promise<TranscriptResponse | nu
   if (!meta) return null;
 
   const sm = await SessionManager.open(meta.path);
-  const ctx = buildSessionContext(sm.getEntries(), sm.getLeafId(), undefined, { transcript: true });
+  // keepDanglingToolCalls: a mid-turn rebuild sees the assistant's toolCall
+  // before its result is persisted. Without it the SDK strips the block and a
+  // pending `ask` never reaches the browser — invisible, unanswerable.
+  const ctx = buildSessionContext(sm.getEntries(), sm.getLeafId(), undefined, {
+    transcript: true,
+    keepDanglingToolCalls: true,
+  });
   const messages: WireMessage[] = [];
   for (const raw of ctx.messages ?? []) {
     const normalized = normalizeMessage(raw);
