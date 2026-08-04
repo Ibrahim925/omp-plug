@@ -6,13 +6,12 @@
 //   WS   /ws/agent                       -> omp-report extension ingest + command dispatch
 //   WS   /ws/client                      -> browser live event stream
 //   everything else                      -> static web/dist with SPA (index.html) fallback
-import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { basename, dirname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { Server, ServerWebSocket } from "bun";
 
+import { AUTH } from "./auth.ts";
 import { getTranscript, listSessions } from "./history.ts";
 import {
   commandSchema,
@@ -30,25 +29,10 @@ import type { SessionListItem, TranscriptResponse } from "./types.ts";
 
 const HOST = process.env.HOST || "0.0.0.0";
 const PORT = Number(process.env.PORT || 7317);
-const AUTH = process.env.OMP_PLUG_TOKEN ?? readConfigToken();
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DIST = join(here, "../../web/dist");
 const INDEX = join(DIST, "index.html");
-
-// Token fallback when OMP_PLUG_TOKEN is not in the environment. Function
-// declaration so the AUTH const above can call it (hoisted).
-function readConfigToken(): string {
-  try {
-    const raw: unknown = JSON.parse(readFileSync(join(homedir(), ".omp-plug.json"), "utf8"));
-    if (raw && typeof raw === "object" && "token" in raw && typeof raw.token === "string") {
-      return raw.token;
-    }
-  } catch {
-    // no config file / unreadable -> no token
-  }
-  return "";
-}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -234,5 +218,5 @@ try {
 }
 
 console.log(`omp-plug dashboard on http://${server.hostname}:${server.port}`);
-if (process.env.OMP_PLUG_TOKEN) console.log("auth: token required for agent register");
-else console.log("auth: OPEN (set OMP_PLUG_TOKEN to require a shared secret for prompting)");
+if (AUTH) console.log("auth: token required (env or ~/.omp-plug.json)");
+else console.log("auth: OPEN (set OMP_PLUG_TOKEN or a token in ~/.omp-plug.json to require a shared secret)");

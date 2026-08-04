@@ -205,16 +205,20 @@ export default function ompReport(pi: ExtensionAPI): void {
     };
   }
 
+  // Clamped to the server's wire contract (live.ts): name<=100, description<=400,
+  // at most 200 commands. Skill commands routinely carry very long descriptions;
+  // an oversized field must never invalidate the whole register frame.
   function readCommands(): SlashCommand[] | undefined {
     try {
       const list = pi.getCommands?.();
       if (!Array.isArray(list)) return undefined;
       const out: SlashCommand[] = [];
       for (const item of list) {
-        const name = strProp(item, "name");
+        const name = strProp(item, "name")?.slice(0, 100);
         if (!name) continue;
-        const description = strProp(item, "description");
+        const description = strProp(item, "description")?.slice(0, 400);
         out.push(description ? { name, description } : { name });
+        if (out.length === 200) break;
       }
       return out.length ? out : undefined;
     } catch {

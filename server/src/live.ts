@@ -11,6 +11,7 @@ import { z } from "zod";
 
 import type { ServerWebSocket } from "bun";
 
+import { AUTH } from "./auth.ts";
 import type { Command, LiveEvent, LiveSessionMeta } from "./types.ts";
 
 export type WsData =
@@ -26,11 +27,16 @@ interface Agent {
 
 const agents = new Map<string, Agent>();
 const clients = new Set<Ws>();
-const TOKEN = process.env.OMP_PLUG_TOKEN ?? "";
 
+// Clamp (rather than reject) oversized names/descriptions: omp skill commands
+// routinely carry descriptions past any fixed cap, and a single long one must
+// not invalidate the whole register frame (it silently killed controllability).
 const commandInfoSchema = z.object({
-  name: z.string().min(1).max(100),
-  description: z.string().max(400).optional(),
+  name: z.string().min(1).transform((s) => s.slice(0, 100)),
+  description: z
+    .string()
+    .transform((s) => s.slice(0, 400))
+    .optional(),
 });
 const metaSchema = z.object({
   sessionId: z.string().min(1),
@@ -39,7 +45,10 @@ const metaSchema = z.object({
   model: z.string().optional(),
   pid: z.number().optional(),
   startedAt: z.string().optional(),
-  commands: z.array(commandInfoSchema).max(200).optional(),
+  commands: z
+    .array(commandInfoSchema)
+    .transform((a) => a.slice(0, 200))
+    .optional(),
 });
 
 const liveEventSchema: z.ZodType<LiveEvent> = z.discriminatedUnion("kind", [
@@ -120,7 +129,7 @@ export function handleAgentMessage(ws: Ws, raw: string | Buffer): void {
   const msg = parsed.data;
 
   if (msg.type === "register") {
-    if (TOKEN && msg.token !== TOKEN) {
+    if (AUTH && msg.token !== AUTH) {
       send(ws, { type: "error", error: "unauthorized" });
       ws.close(4401, "unauthorized");
       return;

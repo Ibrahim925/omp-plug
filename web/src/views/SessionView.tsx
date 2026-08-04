@@ -360,8 +360,10 @@ export function SessionView({ id }: { id: string }) {
 
       {data && !data.controllable && data.live && (
         <div className="readonly-note">
-          Read-only — this session started before omp-report was attached. Start a new omp session
-          (or <code>/resume</code> this one in a fresh launch) to control it from here.
+          Read-only — this session isn't connected to the dashboard. Usually it started before
+          omp-report was installed (start a new omp session or <code>/resume</code> this one in a
+          fresh launch); if that's not it, check the extension's URL/token in{" "}
+          <code>~/.omp-plug.json</code>.
         </div>
       )}
     </div>
