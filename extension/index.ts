@@ -19,6 +19,10 @@ import { join } from "node:path";
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 
 // --- wire contract (kept in sync with server/src/types.ts) ---
+interface SlashCommand {
+  name: string;
+  description?: string;
+}
 interface LiveSessionMeta {
   sessionId: string;
   cwd?: string;
@@ -26,6 +30,7 @@ interface LiveSessionMeta {
   model?: string;
   pid?: number;
   startedAt?: string;
+  commands?: SlashCommand[];
 }
 type LiveEvent =
   | { kind: "delta"; channel: "text" | "thinking"; text: string }
@@ -200,6 +205,23 @@ export default function ompReport(pi: ExtensionAPI): void {
     };
   }
 
+  function readCommands(): SlashCommand[] | undefined {
+    try {
+      const list = pi.getCommands?.();
+      if (!Array.isArray(list)) return undefined;
+      const out: SlashCommand[] = [];
+      for (const item of list) {
+        const name = strProp(item, "name");
+        if (!name) continue;
+        const description = strProp(item, "description");
+        out.push(description ? { name, description } : { name });
+      }
+      return out.length ? out : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   function refreshMeta(): void {
     if (!ctx) return;
     const header = readHeader(ctx.sessionManager);
@@ -211,6 +233,7 @@ export default function ompReport(pi: ExtensionAPI): void {
       model: modelString(ctx.model),
       pid: process.pid,
       startedAt: new Date().toISOString(),
+      commands: readCommands(),
     };
   }
 

@@ -89,6 +89,12 @@ export interface SessionListItem {
   controllable: boolean;
 }
 
+/** A slash command available in a live session (name without leading slash). */
+export interface SlashCommand {
+  name: string;
+  description?: string;
+}
+
 export interface TranscriptResponse {
   id: string;
   cwd: string;
@@ -99,6 +105,7 @@ export interface TranscriptResponse {
   live: boolean;
   controllable: boolean;
   messages: WireMessage[];
+  commands?: SlashCommand[];
 }
 
 // ---- Live plane contract (extension <-> server <-> web) ----
@@ -111,6 +118,7 @@ export interface LiveSessionMeta {
   model?: string;
   pid?: number;
   startedAt?: string;
+  commands?: SlashCommand[];
 }
 
 /** Normalized live event forwarded from a running session to subscribed browsers. */

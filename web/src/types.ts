@@ -29,6 +29,11 @@ export interface WireMessage {
   content: WireBlock[];
 }
 
+export interface SlashCommand {
+  name: string;
+  description?: string;
+}
+
 export interface TranscriptResponse {
   id: string;
   cwd: string;
@@ -39,6 +44,7 @@ export interface TranscriptResponse {
   live: boolean;
   controllable: boolean;
   messages: WireMessage[];
+  commands?: SlashCommand[];
 }
 
 export type LiveEvent =

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchTranscript, sendCommand, subscribeLive } from "../api.ts";
 import { navigate } from "../router.ts";
@@ -17,12 +17,15 @@ export function SessionView({ id }: { id: string }) {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [attachments, setAttachments] = useState<(ImagePayload & { url: string })[]>([]);
+  const [acIndex, setAcIndex] = useState(0);
+  const [acDismissed, setAcDismissed] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const lastFetch = useRef(0);
   const refetchTimer = useRef<number | undefined>(undefined);
   const fileInput = useRef<HTMLInputElement>(null);
+  const textarea = useRef<HTMLTextAreaElement>(null);
 
   const doFetch = useCallback(async () => {
     lastFetch.current = Date.now();
@@ -176,6 +179,24 @@ export function SessionView({ id }: { id: string }) {
     }
   }
 
+  // Slash-command autocomplete: active while the input is a single "/token"
+  // (no whitespace), matched against the live session's advertised commands.
+  const suggestions = useMemo(() => {
+    const match = input.match(/^\/(\S*)$/);
+    if (!match || !data?.commands?.length) return [];
+    const q = match[1].toLowerCase();
+    return data.commands.filter((c) => c.name.toLowerCase().startsWith(q)).slice(0, 8);
+  }, [input, data?.commands]);
+
+  const acActive = Math.min(acIndex, Math.max(0, suggestions.length - 1));
+  const acOpen = suggestions.length > 0 && !acDismissed;
+
+  function acceptSuggestion(name: string) {
+    setInput(`/${name} `);
+    setAcIndex(0);
+    textarea.current?.focus();
+  }
+
   return (
     <div className="page">
       <header className="topbar">
@@ -228,6 +249,22 @@ export function SessionView({ id }: { id: string }) {
 
       {data?.controllable && (
         <div className="composer-wrap">
+          {acOpen && (
+            <div className="ac">
+              {suggestions.map((c, i) => (
+                <button
+                  type="button"
+                  key={c.name}
+                  className={`ac-item${i === acActive ? " on" : ""}`}
+                  onMouseEnter={() => setAcIndex(i)}
+                  onClick={() => acceptSuggestion(c.name)}
+                >
+                  <span className="ac-name">/{c.name}</span>
+                  {c.description && <span className="ac-desc">{c.description}</span>}
+                </button>
+              ))}
+            </div>
+          )}
           {attachments.length > 0 && (
             <div className="attachments">
               {attachments.map((att, i) => (
@@ -266,10 +303,37 @@ export function SessionView({ id }: { id: string }) {
               +
             </button>
             <textarea
+              ref={textarea}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value);
+                setAcIndex(0);
+                setAcDismissed(false);
+              }}
               onPaste={onPaste}
               onKeyDown={(e) => {
+                if (acOpen) {
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setAcIndex((i) => (i + 1) % suggestions.length);
+                    return;
+                  }
+                  if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setAcIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
+                    return;
+                  }
+                  if (e.key === "Tab" || (e.key === "Enter" && !e.metaKey && !e.ctrlKey)) {
+                    e.preventDefault();
+                    acceptSuggestion(suggestions[acActive].name);
+                    return;
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setAcDismissed(true);
+                    return;
+                  }
+                }
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                   e.preventDefault();
                   submit();

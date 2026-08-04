@@ -28,6 +28,10 @@ const agents = new Map<string, Agent>();
 const clients = new Set<Ws>();
 const TOKEN = process.env.OMP_PLUG_TOKEN ?? "";
 
+const commandInfoSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(400).optional(),
+});
 const metaSchema = z.object({
   sessionId: z.string().min(1),
   cwd: z.string().optional(),
@@ -35,6 +39,7 @@ const metaSchema = z.object({
   model: z.string().optional(),
   pid: z.number().optional(),
   startedAt: z.string().optional(),
+  commands: z.array(commandInfoSchema).max(200).optional(),
 });
 
 const liveEventSchema: z.ZodType<LiveEvent> = z.discriminatedUnion("kind", [
@@ -96,6 +101,10 @@ export function isControllable(sessionId: string): boolean {
 
 export function liveMeta(): LiveSessionMeta[] {
   return [...agents.values()].map((a) => a.meta);
+}
+
+export function liveCommands(sessionId: string): LiveSessionMeta["commands"] {
+  return agents.get(sessionId)?.meta.commands;
 }
 
 export function dispatchCommand(sessionId: string, command: Command): boolean {

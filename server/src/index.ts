@@ -22,6 +22,7 @@ import {
   handleClose,
   handleOpen,
   isControllable,
+  liveCommands,
   liveMeta,
 } from "./live.ts";
 import type { WsData } from "./live.ts";
@@ -105,6 +106,7 @@ async function transcript(id: string): Promise<TranscriptResponse | null> {
   if (found) {
     found.controllable = isControllable(found.id);
     found.live = found.live || found.controllable;
+    found.commands = liveCommands(found.id);
     return found;
   }
   // Live but not yet persisted (no assistant message written): serve an empty
@@ -121,6 +123,7 @@ async function transcript(id: string): Promise<TranscriptResponse | null> {
     live: true,
     controllable: true,
     messages: [],
+    commands: meta.commands,
   };
 }
 

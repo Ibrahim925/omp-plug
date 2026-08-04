@@ -606,6 +606,46 @@ pre {
   background: none;
   backdrop-filter: none;
 }
+
+/* ---- slash-command autocomplete ---- */
+.ac {
+  display: flex;
+  flex-direction: column;
+  margin: 8px 12px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--panel);
+  overflow: hidden;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.ac-item {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--fg);
+  font-size: 13px;
+}
+.ac-item.on {
+  background: var(--accent-weak);
+}
+.ac-name {
+  font-family: var(--mono);
+  color: var(--accent);
+  font-weight: 600;
+  flex: none;
+}
+.ac-desc {
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .attachments {
   display: flex;
   gap: 8px;
