@@ -211,7 +211,6 @@ export function SessionView({ id }: { id: string }) {
 
         {preview && (
           <div className="msg" data-role="assistant">
-            <div className="msg-label">Assistant</div>
             <div className="msg-body">
               <div className="text">
                 {preview}

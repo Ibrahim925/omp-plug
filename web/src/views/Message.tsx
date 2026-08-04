@@ -291,12 +291,16 @@ export interface MessageProps {
 export function Message({ message, results, controllable, onAnswer }: MessageProps) {
   const label = ROLE_LABEL[message.role] ?? message.role;
   const cls = message.isError ? "msg error" : "msg";
+  // Assistant output flows label-free (Codex-style); other roles keep a tag.
+  const showLabel = message.role !== "assistant";
   return (
     <div className={cls} data-role={message.role}>
-      <div className="msg-label">
-        {label}
-        {message.customType && <span className="subtle small"> · {message.customType}</span>}
-      </div>
+      {showLabel && (
+        <div className="msg-label">
+          {label}
+          {message.customType && <span className="subtle small"> · {message.customType}</span>}
+        </div>
+      )}
       <div className="msg-body">
         {message.content.map((block, i) => {
           if (block.type !== "toolCall") return <Block key={i} block={block} />;
