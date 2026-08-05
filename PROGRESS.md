@@ -24,12 +24,32 @@ what a verification command actually confirmed.
   add/remove — all verified end to end (HTTP + headless browser).
 - **Start:** `make dev` then open `http://<host>:7317` (token from
   `~/.omp-plug.json`); or `make dev-web` for the Vite UI with HMR.
-- **Next priority:** implementation is a separate phase — pick the first
+- **Next priority:** finish the device-side verification of `push-notifications`
+  (serve over HTTPS, enable the bell on a phone), or pick the first remaining
   `not_started` row in `feature_list.json` (suggest `ws-dev-proxy`).
 - **Blockers:** none. (Note: `make check` does not typecheck server/extension —
   they are Bun-runtime TS with no author-time SDK types; see DECISIONS.md.)
 
 ## Session Records
+
+### 2026-08-05 (feature) — Web Push notifications
+- Outcome: server path done + verified; device round-trip pending HTTPS.
+- Did: added `web-push` dep; `server/src/push.ts` (VAPID keygen persisted to
+  `~/.omp-plug-push.json`, subscription store, fail-soft `notify()` fan-out with
+  404/410 pruning); `live.ts` `maybePush` triggers on `idle` and `ask` toolStart
+  (no wire-shape change); `/api/push/{key,subscribe,unsubscribe,test}` routes;
+  web `public/sw.js` service worker + `web/src/push.ts` subscribe client + api
+  functions; bell toggle in `SessionList` (states: on/off/denied/insecure/
+  unsupported) + CSS. Docs: deploy.md push section, DECISIONS entry, AGENTS
+  structure, feature_list `push-notifications` row.
+- Verification run: `make check` green (tsc web clean; `bun test` 1/1). Server
+  send path proven end-to-end against an isolated HOME + self-signed TLS capture
+  endpoint: POST received with `Content-Encoding: aes128gcm`, `Authorization:
+  vapid`, `TTL: 600`, 180B encrypted body; VAPID key persisted; subscribe/test
+  routes ok. Did NOT run: real browser/phone subscribe->receipt (needs an HTTPS
+  secure context; web-push always delivers over https.request).
+- Risks / follow-ups: the VAPID keypair in `~/.omp-plug-push.json` must stay
+  stable (regenerating invalidates every device). iOS needs Add-to-Home-Screen.
 
 ### 2026-08-05 (harness-init) — Initialize agent harness
 - Outcome: done.

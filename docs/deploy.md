@@ -50,3 +50,24 @@ the script (the template is the source).
 - `make dev-web` — Vite dev server with HMR; proxies `/api` → `:7317`.
   Note: the Vite proxy covers `/api` only, not `/ws/*` (see `feature_list.json`).
 - `make build` — produce `web/dist`. `make start` — run the built app.
+
+## Push notifications (Web Push / VAPID)
+
+The dashboard can send a notification to your phone when a live session
+finishes a turn (goes idle) or raises an `ask` and is waiting on you. Toggle it
+with the bell in the session-list header.
+
+- **Secure context is mandatory.** Browsers only accept a push subscription over
+  HTTPS (or `localhost`). Plain-HTTP `:7317` over Tailscale will show the bell
+  disabled ("Push needs HTTPS"). Serve the dashboard over TLS, e.g.
+  `tailscale serve --bg 7317`, and open the `https://<host>.ts.net` URL. On iOS
+  you must additionally **Add to Home Screen** (PWA) before push works.
+- **State** lives in `~/.omp-plug-push.json` (chmod 600, separate from the token
+  config): the server's VAPID keypair (generated once — stable across restarts,
+  never commit or delete it or all devices must re-subscribe) and the list of
+  device subscriptions. Dead endpoints (404/410) are pruned automatically.
+- **VAPID subject** defaults to `mailto:omp-plug@localhost`; override with env
+  `OMP_PLUG_PUSH_SUBJECT` (must be a `mailto:` or `https:` contact).
+- **Endpoints** (all token-gated like the rest of `/api`): `GET /api/push/key`
+  (VAPID public key), `POST /api/push/subscribe`, `POST /api/push/unsubscribe`,
+  `POST /api/push/test`. The browser service worker is served at `/sw.js`.

@@ -51,3 +51,19 @@ against the source, not inferred.
   plane resolved the token differently, agent registration ran unauthenticated.
 - Constraint: `server/src/auth.ts` and the extension's `readConfig()` must resolve
   the token the same way (env overrides file); keep them in agreement.
+
+## 2026-08-05: Web Push notifications via the `web-push` library
+- Reason: getting a notification to a phone while the app is backgrounded needs
+  the Web Push API (service worker + VAPID + RFC 8291 payload encryption). The
+  `web-push` npm package is the battle-tested sender; hand-rolling the crypto was
+  the rejected alternative (approved dependency add, WIP=1).
+- Triggers reuse existing live events — no wire-shape change: `idle` (agent
+  finished) and a `toolStart` whose name is `ask` (agent needs input). Hooked in
+  `live.ts` `maybePush`, fired fire-and-forget through `push.ts` `notify()`.
+- Constraint: the browser only accepts a subscription in a **secure context**, so
+  push requires serving over HTTPS (Tailscale Serve / `tailscale cert`); over
+  plain HTTP the UI disables the toggle. web-push always issues the delivery over
+  `https.request`, so real push endpoints must be HTTPS (they always are).
+- State (VAPID keypair + subscriptions) persists to `~/.omp-plug-push.json`,
+  deliberately separate from the token config; the keypair must stay stable or
+  every device has to re-subscribe.

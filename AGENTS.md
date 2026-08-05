@@ -25,9 +25,11 @@ one (prompt/steer/answer/abort), and create/rename/delete sessions and projects.
 ## Project structure
 - `server/src/` — dashboard server. `index.ts` (routes/WS), `live.ts` (live
   registry), `history.ts` (persisted sessions), `spawn.ts` (create sessions),
-  `sdk.ts` (runtime SDK), `auth.ts`, `types.ts` (canonical wire types).
+  `sdk.ts` (runtime SDK), `auth.ts`, `push.ts` (Web Push / VAPID),
+  `types.ts` (canonical wire types).
 - `web/src/` — React client. `views/` (SessionList, SessionView, Message),
-  `api.ts`, `types.ts`, `router.ts`.
+  `api.ts`, `types.ts`, `router.ts`, `push.ts` (subscribe client);
+  `web/public/sw.js` (push service worker).
 - `extension/index.ts` — the `omp-report` extension (agent side of the wire).
 - `scripts/` — `install.sh`, `uninstall.sh`, launchd plist template.
 - `docs/` — topic docs (below). `web/dist/` — build output (gitignored).

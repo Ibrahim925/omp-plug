@@ -140,6 +140,16 @@
       "verification": ["run make dev-web, open the Vite URL, confirm a live session streams events (WS proxied, not only /api)"],
       "evidence": "",
       "notes": "genuine gap: web/vite.config.ts proxies /api only; add ws:true proxy entries for /ws/*"
+    },
+    {
+      "id": "push-notifications",
+      "area": "server+web",
+      "title": "Web Push notifications to your phone",
+      "user_visible_behavior": "A bell toggle in the session list subscribes the device; the server pushes a notification when a live session goes idle (finished) or raises an ask (needs input), deep-linking to the session",
+      "status": "in_progress",
+      "verification": ["server: subscribe a valid P-256 subscription then POST /api/push/test and confirm the push service receives a POST with Content-Encoding: aes128gcm + Authorization: vapid", "device: serve over HTTPS (tailscale serve), enable the bell on a phone, and confirm a notification lands when a session finishes"],
+      "evidence": "2026-08-05 server path verified end-to-end: isolated server + TLS capture endpoint received POST ce=aes128gcm authScheme=vapid ttl=600 body=180B, VAPID key generated+persisted to ~/.omp-plug-push.json, subscribe/test routes ok; make check green (tsc + bun test). NOT yet run: real browser/phone round-trip (needs HTTPS secure context)",
+      "notes": "web-push dep; triggers reuse idle + ask toolStart (no wire-shape change); needs HTTPS + a real device for the final subscribe->receipt pass"
     }
   ]
 }
