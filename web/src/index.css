@@ -185,6 +185,22 @@ body {
   color: var(--fg);
   border-color: var(--border-strong);
 }
+.new-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.new-btn.on {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 45%, transparent);
+}
+/* SessionList header groups the notifications + new-session buttons together. */
+.topbar > .topbar-actions {
+  margin-left: auto;
+  gap: 8px;
+}
+.topbar-actions .new-btn {
+  margin-left: 0;
+}
 .new-form {
   display: flex;
   flex-direction: column;

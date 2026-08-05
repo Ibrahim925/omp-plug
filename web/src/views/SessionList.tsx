@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSession, deleteProject, deleteSession, fetchSessions } from "../api.ts";
 import { humanBytes, relTime } from "../format.ts";
 import { navigate } from "../router.ts";
+import { currentPushState, disablePush, enablePush, type PushState } from "../push.ts";
 import type { SessionListItem } from "../types.ts";
 
 const POLL_MS = 15_000;
@@ -15,6 +16,16 @@ interface Group {
   live: number;
 }
 
+// Bell glyph + tooltip for each push state. Disabled states explain the reason
+// (notably `insecure`: push needs HTTPS, which over Tailscale means `serve`).
+const PUSH_UI: Record<PushState, { icon: string; title: string; disabled: boolean }> = {
+  on: { icon: "🔔", title: "Phone notifications on — tap to turn off", disabled: false },
+  off: { icon: "🔕", title: "Turn on phone notifications", disabled: false },
+  denied: { icon: "🔕", title: "Notifications blocked — allow them in your browser settings", disabled: true },
+  insecure: { icon: "🔕", title: "Push needs HTTPS — serve the dashboard over `tailscale serve`", disabled: true },
+  unsupported: { icon: "🔕", title: "This browser can't do push notifications", disabled: true },
+};
+
 export function SessionList() {
   const [sessions, setSessions] = useState<SessionListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +36,9 @@ export function SessionList() {
   const [newTitle, setNewTitle] = useState("");
   const [creating, setCreating] = useState(false);
   const [createErr, setCreateErr] = useState<string | null>(null);
+
+  const [pushState, setPushState] = useState<PushState>("off");
+  const [pushBusy, setPushBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -41,6 +55,26 @@ export function SessionList() {
     const timer = setInterval(load, POLL_MS);
     return () => clearInterval(timer);
   }, [load]);
+
+  useEffect(() => {
+    let live = true;
+    currentPushState().then((s) => live && setPushState(s));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  async function togglePush() {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      setPushState(pushState === "on" ? await disablePush() : await enablePush());
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setPushBusy(false);
+    }
+  }
 
   const groups = useMemo<Group[] | null>(() => {
     if (!sessions) return null;
@@ -151,9 +185,20 @@ export function SessionList() {
           {sessions ? `${sessions.length} sessions` : "\u00a0"}
           {liveCount > 0 && <span className="live-count"> · {liveCount} live</span>}
         </span>
-        <button className="new-btn" onClick={() => setShowNew((v) => !v)} aria-label="New session">
-          {showNew ? "×" : "+"}
-        </button>
+        <div className="topbar-actions">
+          <button
+            className={`new-btn${pushState === "on" ? " on" : ""}`}
+            onClick={togglePush}
+            disabled={pushBusy || PUSH_UI[pushState].disabled}
+            title={PUSH_UI[pushState].title}
+            aria-label="Toggle phone notifications"
+          >
+            {PUSH_UI[pushState].icon}
+          </button>
+          <button className="new-btn" onClick={() => setShowNew((v) => !v)} aria-label="New session">
+            {showNew ? "×" : "+"}
+          </button>
+        </div>
       </header>
 
       {showNew && (

@@ -66,6 +66,22 @@ export function deleteProject(cwd: string): Promise<{ ok: true; removed: number;
   return mutate(`/api/projects?cwd=${encodeURIComponent(cwd)}`, "DELETE");
 }
 
+export function fetchVapidKey(): Promise<{ key: string }> {
+  return getJson<{ key: string }>("/api/push/key");
+}
+
+export function savePushSubscription(sub: PushSubscriptionJSON): Promise<{ ok: true }> {
+  return mutate("/api/push/subscribe", "POST", sub);
+}
+
+export function deletePushSubscription(endpoint: string): Promise<{ ok: true }> {
+  return mutate("/api/push/unsubscribe", "POST", { endpoint });
+}
+
+export function sendTestPush(): Promise<{ ok: true; subscriptions: number }> {
+  return mutate("/api/push/test", "POST", {});
+}
+
 function wsUrl(path: string): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   const token = getToken();
