@@ -18,7 +18,17 @@ self.addEventListener("push", (event) => {
     renotify: !!data.tag,
     data: { url: data.url || "/" },
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    (async () => {
+      // Stay silent while the user is actively looking at the dashboard. A
+      // focused, visible same-origin window is the sanctioned exemption from
+      // userVisibleOnly, so skipping showNotification here is spec-legal.
+      const windows = await clients.matchAll({ type: "window", includeUncontrolled: true });
+      const focused = windows.some((c) => c.focused && c.visibilityState === "visible");
+      if (focused) return;
+      return self.registration.showNotification(title, options);
+    })(),
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {
