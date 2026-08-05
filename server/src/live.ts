@@ -12,6 +12,7 @@ import { z } from "zod";
 import type { ServerWebSocket } from "bun";
 
 import { AUTH } from "./auth.ts";
+import { notify } from "./push.ts";
 import { takePendingTitle } from "./spawn.ts";
 import type { Command, LiveEvent, LiveSessionMeta } from "./types.ts";
 
@@ -148,6 +149,21 @@ export function dispatchCommand(sessionId: string, command: Command): boolean {
   return true;
 }
 
+// Turn notable live events into a phone push. Two triggers (see the dashboard's
+// notification toggle): `idle` = the agent finished its turn and is waiting for
+// you; an `ask` toolStart = the agent is blocked on your answer. Fire-and-forget
+// and fully guarded inside notify() — a push must never affect event delivery.
+function maybePush(sessionId: string, event: LiveEvent): void {
+  const meta = agents.get(sessionId)?.meta;
+  const label = meta?.title || meta?.cwd?.split("/").filter(Boolean).pop() || "omp session";
+  const url = `/s/${sessionId}`;
+  if (event.kind === "idle") {
+    void notify({ title: label, body: "Finished — waiting for you", url, tag: sessionId });
+  } else if (event.kind === "toolStart" && event.name === "ask") {
+    void notify({ title: label, body: "Needs your input", url, tag: sessionId });
+  }
+}
+
 export function handleAgentMessage(ws: Ws, raw: string | Buffer): void {
   const parsed = agentInboundSchema.safeParse(parse(raw));
   if (!parsed.success) return;
@@ -178,6 +194,7 @@ export function handleAgentMessage(ws: Ws, raw: string | Buffer): void {
         send(client, { type: "event", sessionId: msg.sessionId, event: msg.event });
       }
     }
+    maybePush(msg.sessionId, msg.event);
     return;
   }
 

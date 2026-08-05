@@ -27,6 +27,7 @@ import {
 } from "./live.ts";
 import type { WsData } from "./live.ts";
 import { isSpawned, SpawnError, spawnSession, stopSpawned } from "./spawn.ts";
+import { addSubscription, notify, removeSubscription, subscriptionCount, vapidPublicKey } from "./push.ts";
 import type { SessionListItem, TranscriptResponse } from "./types.ts";
 
 const HOST = process.env.HOST || "0.0.0.0";
@@ -150,6 +151,24 @@ function start(): Server {
       if (pathname === "/ws/client") {
         const data: WsData = { role: "client", subs: new Set<string>() };
         return srv.upgrade(req, { data }) ? undefined : new Response("upgrade failed", { status: 426 });
+      }
+
+      // Web Push endpoints (all token-gated like the rest of /api). The browser
+      // fetches the VAPID key, registers a subscription, and can fire a test
+      // notification to confirm the round trip to the device works.
+      if (pathname === "/api/push/key") return json({ key: vapidPublicKey() });
+      if (pathname === "/api/push/subscribe" && req.method === "POST") {
+        const sub = await req.json().catch(() => undefined);
+        return addSubscription(sub) ? json({ ok: true }) : json({ error: "invalid subscription" }, 400);
+      }
+      if (pathname === "/api/push/unsubscribe" && req.method === "POST") {
+        const body = (await req.json().catch(() => undefined)) as { endpoint?: unknown } | undefined;
+        removeSubscription(body?.endpoint);
+        return json({ ok: true });
+      }
+      if (pathname === "/api/push/test" && req.method === "POST") {
+        await notify({ title: "omp-plug", body: "Test notification — you're all set.", url: "/" });
+        return json({ ok: true, subscriptions: subscriptionCount() });
       }
       if (pathname === "/api/sessions") {
         if (req.method === "POST") {

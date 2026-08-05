@@ -5,6 +5,7 @@
   "type": "module",
   "main": "src/index.ts",
   "dependencies": {
+    "web-push": "^3.6.7",
     "zod": "^4.4.3"
   }
 }
