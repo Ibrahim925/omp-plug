@@ -72,8 +72,12 @@ with the bell in the session-list header.
   config): the server's VAPID keypair (generated once — stable across restarts,
   never commit or delete it or all devices must re-subscribe) and the list of
   device subscriptions. Dead endpoints (404/410) are pruned automatically.
-- **VAPID subject** defaults to `mailto:omp-plug@localhost`; override with env
-  `OMP_PLUG_PUSH_SUBJECT` (must be a `mailto:` or `https:` contact).
+- **VAPID subject** must be a well-formed `mailto:` (real domain) or `https:`
+  URL — **Apple rejects invalid subjects** (e.g. `@localhost`) with `403
+  BadJwtToken`, which fails iPhone delivery while lenient services still work.
+  Set env `OMP_PLUG_PUSH_SUBJECT` to your address or the dashboard's https URL;
+  env overrides the value persisted in `~/.omp-plug-push.json`. Changing it does
+  NOT invalidate subscriptions (only the keypair binds those).
 - **Endpoints** (all token-gated like the rest of `/api`): `GET /api/push/key`
   (VAPID public key), `POST /api/push/subscribe`, `POST /api/push/unsubscribe`,
   `POST /api/push/test`. The browser service worker is served at `/sw.js`.

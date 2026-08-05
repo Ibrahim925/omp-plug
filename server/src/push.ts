@@ -16,9 +16,13 @@ import { join } from "node:path";
 import webpush from "web-push";
 
 const FILE = join(homedir(), ".omp-plug-push.json");
-// VAPID requires a contact subject (mailto: or https URL). Overridable so a
-// real deployment can point it at a monitored address.
-const SUBJECT = process.env.OMP_PLUG_PUSH_SUBJECT || "mailto:omp-plug@localhost";
+// VAPID requires a well-formed contact subject: a `mailto:` with a real domain,
+// or an `https:` URL. Apple's push service rejects anything else (notably an
+// @localhost address) with 403 BadJwtToken. Point OMP_PLUG_PUSH_SUBJECT at your
+// own address or your dashboard's https URL for a real deployment; env wins over
+// the persisted value so it can be corrected without editing the store file.
+const DEFAULT_SUBJECT = "mailto:omp-plug@example.com";
+const ENV_SUBJECT = process.env.OMP_PLUG_PUSH_SUBJECT;
 
 export interface PushSubscription {
   endpoint: string;
@@ -49,14 +53,14 @@ function load(): Store {
     if (raw.vapid?.publicKey && raw.vapid?.privateKey) {
       return {
         vapid: raw.vapid,
-        subject: raw.subject || SUBJECT,
+        subject: ENV_SUBJECT || raw.subject || DEFAULT_SUBJECT,
         subscriptions: Array.isArray(raw.subscriptions) ? raw.subscriptions : [],
       };
     }
   } catch {
     // no file / unreadable / missing keys — fall through and generate.
   }
-  const fresh: Store = { vapid: webpush.generateVAPIDKeys(), subject: SUBJECT, subscriptions: [] };
+  const fresh: Store = { vapid: webpush.generateVAPIDKeys(), subject: ENV_SUBJECT || DEFAULT_SUBJECT, subscriptions: [] };
   persist(fresh);
   return fresh;
 }
