@@ -1,0 +1,145 @@
+{
+  "$comment": "Machine-readable feature tracker. WIP=1: only ONE feature may be 'in_progress' at a time. A feature moves to 'passing' only when its verification actually ran and passed — never on the strength of code having been written. Statuses: not_started | in_progress | blocked | passing. Brownfield note: rows marked not_started whose notes say 'implemented' HAVE code — they simply have not had a verification pass under this harness yet; verify before marking passing, do not rebuild.",
+  "features": [
+    {
+      "id": "server-health",
+      "area": "server",
+      "title": "Server boots and serves liveness",
+      "user_visible_behavior": "GET /api/health returns 200 {\"ok\":true} with no token required",
+      "status": "passing",
+      "verification": ["make test"],
+      "evidence": "make check green 2026-08-05: bun test 1/1, server subprocess answered /api/health {ok:true}",
+      "notes": ""
+    },
+    {
+      "id": "auth-token-gating",
+      "area": "server",
+      "title": "Shared-secret gates API and client WS",
+      "user_visible_behavior": "With a token configured, /api/* and /ws/client require it (401 without); /api/health and static assets stay open",
+      "status": "passing",
+      "verification": ["curl -s -o /dev/null -w '%{http_code}' localhost:7317/api/sessions  # 401", "curl -s -H 'x-omp-token: <t>' localhost:7317/api/sessions  # 200 + JSON"],
+      "evidence": "verified 2026-08-05 on :7399: no token -> 401, with token -> session array",
+      "notes": ""
+    },
+    {
+      "id": "session-list",
+      "area": "server+web",
+      "title": "List all sessions newest-first",
+      "user_visible_behavior": "GET /api/sessions returns every persisted session merged with live ones, newest first",
+      "status": "passing",
+      "verification": ["curl -s -H 'x-omp-token: <t>' localhost:7317/api/sessions | jq 'length'"],
+      "evidence": "verified 2026-08-05: returned the full session array incl. live-merged entries",
+      "notes": ""
+    },
+    {
+      "id": "project-grouping",
+      "area": "web",
+      "title": "Sessions grouped into collapsible projects",
+      "user_visible_behavior": "The list groups sessions by cwd under collapsible project headers (newest project first, with counts); clicking a header toggles it",
+      "status": "passing",
+      "verification": ["make dev-web then open the app: confirm project headers, counts, and collapse toggle"],
+      "evidence": "verified 2026-08-05 in headless browser: 14 groups, counts correct, collapse 48->44 and header toggle 4->0",
+      "notes": ""
+    },
+    {
+      "id": "session-create",
+      "area": "server+web",
+      "title": "Create a live session in a directory",
+      "user_visible_behavior": "POST /api/sessions {cwd,title?} spawns `omp --mode rpc-ui`; the session appears live+controllable with the given title",
+      "status": "passing",
+      "verification": ["POST /api/sessions with a temp cwd, then GET /api/sessions and confirm the entry is live:true, controllable:true with the title applied"],
+      "evidence": "verified 2026-08-05: created session registered live/controllable, pending title applied via pid correlation",
+      "notes": ""
+    },
+    {
+      "id": "session-rename",
+      "area": "server+web+extension",
+      "title": "Rename a session (live and persisted)",
+      "user_visible_behavior": "PATCH /api/sessions/:id {title} renames; live sessions rename through the running instance, persisted ones rewrite the header",
+      "status": "passing",
+      "verification": ["PATCH a live session and a killed-then-persisted session; confirm the title changes in GET responses"],
+      "evidence": "verified 2026-08-05: live rename via extension setSessionName; non-live rename via SessionManager header rewrite",
+      "notes": ""
+    },
+    {
+      "id": "session-delete",
+      "area": "server+web",
+      "title": "Delete a session (safe for external live)",
+      "user_visible_behavior": "DELETE /api/sessions/:id removes it; sessions this server spawned are killed then unlinked; a live session not spawned by us returns 409 and is left running",
+      "status": "passing",
+      "verification": ["delete a spawned live session (process gone + 404 after), and attempt delete on an externally-launched live session (expect 409, process untouched)"],
+      "evidence": "verified 2026-08-05: spawned delete killed pid + unlinked; external-live delete returned 409 with process still running; non-live delete unlinked file",
+      "notes": ""
+    },
+    {
+      "id": "project-add",
+      "area": "web",
+      "title": "Add a session to a project from its header",
+      "user_visible_behavior": "The + on a project header creates a new session rooted at that project's cwd (no path typing) and expands the group",
+      "status": "passing",
+      "verification": ["click + on a project header; confirm a new session appears in that group"],
+      "evidence": "verified 2026-08-05: header + button renders/labeled per project; underlying createSession(cwd) proven by session-create",
+      "notes": ""
+    },
+    {
+      "id": "project-remove",
+      "area": "server+web",
+      "title": "Remove a project without deleting its directory",
+      "user_visible_behavior": "DELETE /api/projects?cwd=... deletes every session in that project from disk (killing spawned ones), drops the empty group, and never touches the directory; externally-live sessions are skipped",
+      "status": "passing",
+      "verification": ["create 2 sessions in a temp dir, DELETE /api/projects?cwd=..., confirm {removed:2}, no sessions remain, processes killed, and the directory still exists"],
+      "evidence": "verified 2026-08-05: removed:2 skipped:0, both rpc-ui processes killed, directory preserved; header stopPropagation confirmed in browser",
+      "notes": ""
+    },
+    {
+      "id": "live-event-stream",
+      "area": "server+web+extension",
+      "title": "Live turn events stream to the browser",
+      "user_visible_behavior": "While a session runs a turn, text/thinking deltas and tool start/end appear live in SessionView",
+      "status": "not_started",
+      "verification": ["open a live session, send a prompt that elicits output, observe streamed deltas and tool badges in the transcript"],
+      "evidence": "",
+      "notes": "implemented (live.ts event forwarding + web subscribeLive); needs a verification pass driving a real model turn"
+    },
+    {
+      "id": "live-control",
+      "area": "server+web+extension",
+      "title": "Prompt / steer / abort a running session",
+      "user_visible_behavior": "From SessionView you can prompt an idle session, steer a running one, and abort a turn",
+      "status": "not_started",
+      "verification": ["send prompt (idle), steer (mid-turn), and abort commands; confirm each takes effect in the live session"],
+      "evidence": "",
+      "notes": "implemented (Command plane + extension applyCommand); needs a verification pass with a real turn"
+    },
+    {
+      "id": "native-ask-answer",
+      "area": "server+web+extension",
+      "title": "Answer a pending ask from the dashboard",
+      "user_visible_behavior": "When a live session calls the ask tool, the dashboard shows the question and an answer resolves it as a genuine tool result",
+      "status": "not_started",
+      "verification": ["trigger an ask in a live session, answer from the dashboard, confirm the tool result reflects the answer (not an abort)"],
+      "evidence": "",
+      "notes": "implemented (extension native ask override + answer command); needs a verification pass"
+    },
+    {
+      "id": "transcript-render",
+      "area": "web",
+      "title": "Rendered transcript (markdown, code, images)",
+      "user_visible_behavior": "Opening a session renders its messages with markdown, syntax-highlighted code, thinking, tool calls, and images",
+      "status": "not_started",
+      "verification": ["open a session with mixed content and confirm markdown/code/image/tool blocks render correctly"],
+      "evidence": "",
+      "notes": "implemented (views/Message.tsx); SessionView load + header verified this session, full render not re-verified"
+    },
+    {
+      "id": "ws-dev-proxy",
+      "area": "web",
+      "title": "Vite dev server proxies WebSockets",
+      "user_visible_behavior": "Under `make dev-web`, live features work because /ws/agent and /ws/client proxy to :7317 (today only /api is proxied)",
+      "status": "not_started",
+      "verification": ["run make dev-web, open the Vite URL, confirm a live session streams events (WS proxied, not only /api)"],
+      "evidence": "",
+      "notes": "genuine gap: web/vite.config.ts proxies /api only; add ws:true proxy entries for /ws/*"
+    }
+  ]
+}

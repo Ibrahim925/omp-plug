@@ -1,4 +1,17 @@
+# dependencies
 node_modules/
+
+# build output
 web/dist/
+dist/
+*.tsbuildinfo
+
+# secrets / local env (omp-plug secret lives in ~/.omp-plug.json, never here)
+.env
+.env.*
+
+# logs
 *.log
+
+# OS / editor cruft
 .DS_Store
