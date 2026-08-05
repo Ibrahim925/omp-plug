@@ -6,7 +6,7 @@
 
 <p><b>Drive your omp coding agents from your phone.</b></p>
 
-<p>A self-hosted, mobile-first dashboard to watch, create, and steer live<br /><a href="https://www.npmjs.com/package/@oh-my-pi/pi-coding-agent">omp</a> coding-agent sessions from any browser — usually over Tailscale.</p>
+<p>A self-hosted dashboard for your <a href="https://www.npmjs.com/package/@oh-my-pi/pi-coding-agent">omp</a> coding-agent sessions, built for the phone.<br />Watch a run, answer what it's stuck on, or kick off a new one from any browser on your tailnet.</p>
 
 <p>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-black.svg" alt="License: MIT" /></a>
@@ -29,9 +29,9 @@ You run `omp` on your machine. omp-plug lets you watch and steer those sessions 
 
 ## Why this exists
 
-Long agent runs don't fit at a desk. You kick one off, step away, and then it stalls on a question you can't answer until you're back. omp-plug closes that gap: the loop finishes from your pocket.
+Long agent runs don't fit at a desk. You kick one off, wander away, and it stalls on some yes/no it won't decide on its own, stuck there until you walk back. omp-plug closes that gap: the loop finishes from your pocket.
 
-The part that makes it real is a small extension — `omp-report` — that loads *inside every omp session*. It's the only thing that can actually observe or drive a session, and the server bridges those sessions to your browser over WebSocket. So when you answer an `ask` from your phone, it resolves as a genuine native tool result, not a simulated keystroke. A terminal-in-a-web-page can't honestly claim that.
+The part that makes it real is a small extension (`omp-report`) that loads *inside every omp session*. It's the only thing that can actually see or drive a session, and the server bridges those sessions to your browser over WebSocket. So when you answer an `ask` from your phone, it lands as a genuine native tool result, not a replayed keystroke. A terminal-in-a-web-page can't honestly claim that.
 
 ## What you get
 
@@ -55,7 +55,7 @@ One Bun process serves the built React UI and bridges two WebSocket populations.
 ## Requirements
 
 - [Bun](https://bun.sh) 1.3.14 or newer.
-- `omp` installed globally (the `@oh-my-pi/pi-coding-agent` SDK). omp-plug resolves it at runtime from your global Bun install rather than vendoring it — see [`DECISIONS.md`](DECISIONS.md).
+- `omp` installed globally (the `@oh-my-pi/pi-coding-agent` SDK). omp-plug resolves it at runtime from your global Bun install rather than vendoring its whole dep tree; the reasoning is in [`DECISIONS.md`](DECISIONS.md).
 - macOS if you want the one-command installer (it uses launchd). Everything runs on Linux too; you just start the server yourself instead of through the install script.
 - Optional but recommended: [Tailscale](https://tailscale.com), so you can reach the dashboard from your phone without exposing a port to the internet.
 
@@ -101,7 +101,7 @@ Everything lives in `~/.omp-plug.json` (chmod 600), the single source of truth f
 
 The dashboard can ping your phone when a session finishes a turn or needs an answer. Two things to know before you flip the bell on:
 
-- **HTTPS is mandatory.** Browsers only accept a push subscription in a secure context, so plain-HTTP `:7317` won't work — the toggle stays disabled. Put it behind TLS, e.g. `tailscale serve --bg 7317`, and open the port-less `https://<host>.ts.net` URL.
+- **HTTPS is mandatory.** Browsers only accept a push subscription in a secure context, so plain-HTTP `:7317` won't cut it and the toggle stays disabled. Put it behind TLS, e.g. `tailscale serve --bg 7317`, and open the port-less `https://<host>.ts.net` URL.
 - **iOS means Safari, and you have to install it.** Every iOS browser is WebKit, and Apple only grants Web Push to a home-screen app. Open the HTTPS URL in Safari 16.4+, **Share → Add to Home Screen**, launch from the icon, then enable the bell inside it.
 
 The VAPID keypair and your device subscriptions persist to `~/.omp-plug-push.json`. Don't delete or regenerate it or every device has to re-subscribe. See [`docs/deploy.md`](docs/deploy.md) for the details, including the `mailto:`-subject gotcha that Apple rejects with `403 BadJwtToken`.
@@ -118,7 +118,7 @@ The web client is strict TypeScript. The server and extension are Bun-runtime Ty
 
 ## A note on security
 
-This is built for one operator on a network you control — loopback or Tailscale. It is not a multi-tenant service: there are no user accounts, just a single shared secret. Don't put it on the public internet. If you need it reachable from outside your LAN, put it on a tailnet and let Tailscale handle identity and transport, rather than opening 7317 to the world.
+Built for one operator on a network you control, loopback or your own tailnet. There's no multi-tenant story here: no accounts, no roles, just one shared secret gating everything. So don't hang it off the public internet. If you need it reachable from outside your LAN, put it on a tailnet and let Tailscale own identity and transport instead of opening 7317 to whoever's scanning that day.
 
 ## Contributing
 
