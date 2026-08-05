@@ -32,6 +32,27 @@ what a verification command actually confirmed.
 
 ## Session Records
 
+### 2026-08-05 (chore) — Open-source readiness
+- Outcome: done. Repo prepped for public use/fork/contribution and pushed.
+- Did: added `LICENSE` (MIT, © Ibrahim Khawar), root `README.md` (pitch,
+  the extension mechanism, features, requirements, quick start, config, push
+  caveats, dev loop, security note), `CONTRIBUTING.md` (dev loop + the
+  wire-contract-in-lockstep rule + ask-first list), `.github/workflows/ci.yml`
+  (Bun 1.3.14 → `bun install --frozen-lockfile` → `make check`),
+  `.github/PULL_REQUEST_TEMPLATE.md`, and bug/feature issue templates. Enriched
+  root `package.json` (description, license, author, repository, homepage, bugs,
+  keywords, engines). Scrubbed a personal Tailscale hostname from
+  `scripts/install.sh` → `<dashboard-host>`. Committed a pending, complete
+  `sw.js` change (silence push while the dashboard is focused) as its own
+  atomic feat commit first. No secrets were ever tracked (token →
+  `~/.omp-plug.json`, VAPID → `~/.omp-plug-push.json`).
+- Verification run: `make check` green (tsc web clean; `bun test` 1/1). Server
+  boots without the global SDK (all `getSdk()` calls are lazy), so CI's health
+  smoke test needs nothing global installed. Did NOT run the GitHub Actions
+  workflow itself — it runs on push.
+- Risks / follow-ups: the macOS `install.sh` path (launchd) is unverified on
+  Linux; README documents the manual `make build && make start` route for it.
+
 ### 2026-08-05 (feature) — `!` / `!!` shell escapes from the dashboard composer
 - Outcome: done + verified end to end.
 - Did: the composer now runs omp-style shell escapes. `!cmd` runs a shell
