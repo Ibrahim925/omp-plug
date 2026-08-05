@@ -10,7 +10,7 @@
 #
 # On a machine that only RUNS omp (not the dashboard host), pass
 # --no-dashboard and point --url at the host, e.g.
-#   ./scripts/install.sh --no-dashboard --url ws://stans-macbook-pro.tail871ce3.ts.net:7317 --token <secret>
+#   ./scripts/install.sh --no-dashboard --url ws://<dashboard-host>.ts.net:7317 --token <secret>
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
