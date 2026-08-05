@@ -60,8 +60,14 @@ with the bell in the session-list header.
 - **Secure context is mandatory.** Browsers only accept a push subscription over
   HTTPS (or `localhost`). Plain-HTTP `:7317` over Tailscale will show the bell
   disabled ("Push needs HTTPS"). Serve the dashboard over TLS, e.g.
-  `tailscale serve --bg 7317`, and open the `https://<host>.ts.net` URL. On iOS
-  you must additionally **Add to Home Screen** (PWA) before push works.
+  `tailscale serve --bg 7317`, and open the port-less `https://<host>.ts.net` URL
+  (NOT `:7317`, which is the raw HTTP port → a TLS error).
+- **iOS is Safari-only and requires install.** Every iOS browser is WebKit and
+  Apple forbids third-party browsers (Firefox/Chrome) from Web Push, so it must
+  be **Safari** on iOS 16.4+: open the HTTPS URL, **Share → Add to Home Screen**,
+  then launch from that icon and enable the bell inside it. This needs the web
+  app manifest (`/manifest.webmanifest`, `display: standalone`) — without it iOS
+  makes `pushManager` return `undefined`.
 - **State** lives in `~/.omp-plug-push.json` (chmod 600, separate from the token
   config): the server's VAPID keypair (generated once — stable across restarts,
   never commit or delete it or all devices must re-subscribe) and the list of
