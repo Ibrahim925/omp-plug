@@ -187,9 +187,11 @@ function ToolUnit({ call, result }: { call: ToolCallBlock; result?: WireMessage 
 function AskForm({
   questions,
   onAnswer,
+  onDismiss,
 }: {
   questions: AskQuestion[];
   onAnswer: (text: string, results?: AskAnswerResult[]) => Promise<void>;
+  onDismiss: () => Promise<void>;
 }) {
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [custom, setCustom] = useState<Record<string, string>>({});
@@ -241,8 +243,28 @@ function AskForm({
     }
   }
 
+  async function dismiss() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await onDismiss();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="ask ask-live">
+      <button
+        type="button"
+        className="ask-dismiss"
+        aria-label="Dismiss"
+        title="Dismiss (Esc)"
+        disabled={busy}
+        onClick={dismiss}
+      >
+        ✕
+      </button>
       {questions.map((q) => {
         const picks = selected[q.id] ?? [];
         const options = [...q.options.map((o) => o.label), OTHER];
@@ -326,9 +348,10 @@ export interface MessageProps {
   controllable: boolean;
   isLast: boolean;
   onAnswer: (text: string, results?: AskAnswerResult[]) => Promise<void>;
+  onDismiss: () => Promise<void>;
 }
 
-export function Message({ message, results, controllable, isLast, onAnswer }: MessageProps) {
+export function Message({ message, results, controllable, isLast, onAnswer, onDismiss }: MessageProps) {
   const label = ROLE_LABEL[message.role] ?? message.role;
   const cls = message.isError ? "msg error" : "msg";
   // Assistant output flows label-free (Codex-style); other roles keep a tag.
@@ -351,7 +374,7 @@ export function Message({ message, results, controllable, isLast, onAnswer }: Me
               // Answerable only on the transcript's last message: an unpaired
               // ask elsewhere is a dead branch artifact, not a live question.
               if (!result && controllable && isLast)
-                return <AskForm key={i} questions={questions} onAnswer={onAnswer} />;
+                return <AskForm key={i} questions={questions} onAnswer={onAnswer} onDismiss={onDismiss} />;
               if (!result) return <AskStatic key={i} questions={questions} />;
             }
           }
@@ -369,10 +392,12 @@ export function Transcript({
   messages,
   controllable,
   onAnswer,
+  onDismiss,
 }: {
   messages: WireMessage[];
   controllable: boolean;
   onAnswer: (text: string, results?: AskAnswerResult[]) => Promise<void>;
+  onDismiss: () => Promise<void>;
 }) {
   const { results, top } = useMemo(() => {
     const callIds = new Set<string>();
@@ -399,6 +424,7 @@ export function Transcript({
           controllable={controllable}
           isLast={i === top.length - 1}
           onAnswer={onAnswer}
+          onDismiss={onDismiss}
         />
       ))}
     </>

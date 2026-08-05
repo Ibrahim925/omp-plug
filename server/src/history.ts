@@ -146,6 +146,17 @@ async function resolveMeta(id: string) {
   return all.find((s) => s.id === id) ?? all.find((s) => s.id.startsWith(id));
 }
 
+/**
+ * The fields a resume needs: the resolved full id, its cwd, and whether the
+ * session looks live (written within the last minute — a process may already
+ * own the file, so resuming would double-own it). Null when nothing resolves.
+ */
+export async function resumeInfo(id: string): Promise<{ id: string; cwd?: string; live: boolean } | null> {
+  const meta = await resolveMeta(id);
+  if (!meta) return null;
+  return { id: meta.id, cwd: meta.cwd, live: isLive(meta.modified) };
+}
+
 /** Delete a persisted session's file and artifacts. Returns false if unknown. */
 export async function deleteSession(id: string): Promise<boolean> {
   const meta = await resolveMeta(id);

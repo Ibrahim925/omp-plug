@@ -160,7 +160,8 @@ export type Command =
   | { type: "followup"; text: string; images?: ImagePayload[] }
   | { type: "answer"; text: string; results?: AskAnswerResult[] }
   | { type: "rename"; text: string }
-  | { type: "abort" };
+  | { type: "abort" }
+  | { type: "dismiss" };
 
 /** Frames the extension (agent WS client) sends to the server. */
 export type AgentInbound =

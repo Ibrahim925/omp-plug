@@ -13,7 +13,7 @@ import type { ServerWebSocket } from "bun";
 
 import { AUTH } from "./auth.ts";
 import { notify } from "./push.ts";
-import { takePendingTitle } from "./spawn.ts";
+import { noteRegistered, takePendingTitle } from "./spawn.ts";
 import type { Command, LiveEvent, LiveSessionMeta } from "./types.ts";
 
 export type WsData =
@@ -97,6 +97,7 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("rename"), text: z.string().min(1).max(200) }),
   z.object({ type: z.literal("abort") }),
+  z.object({ type: z.literal("dismiss") }),
 ]);
 
 function parse(raw: string | Buffer): unknown {
@@ -177,6 +178,9 @@ export function handleAgentMessage(ws: Ws, raw: string | Buffer): void {
     }
     if (ws.data.role === "agent") ws.data.sessionId = msg.meta.sessionId;
     agents.set(msg.meta.sessionId, { meta: msg.meta, ws });
+    // Let a dashboard-created session's spawn wait learn this id so the create
+    // response can auto-open the new session in the client.
+    noteRegistered(msg.meta.pid, msg.meta.sessionId);
     // A dashboard-created session carries a requested title; apply it now that
     // the live instance exists (race-free rename via the session's own writer).
     const title = takePendingTitle(msg.meta.pid);

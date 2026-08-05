@@ -72,7 +72,8 @@ export type Command =
   | { type: "followup"; text: string; images?: ImagePayload[] }
   | { type: "answer"; text: string; results?: AskAnswerResult[] }
   | { type: "rename"; text: string }
-  | { type: "abort" };
+  | { type: "abort" }
+  | { type: "dismiss" };
 
 export type ServerToClient =
   | { type: "event"; sessionId: string; event: LiveEvent }

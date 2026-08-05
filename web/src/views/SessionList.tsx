@@ -119,11 +119,16 @@ export function SessionList() {
     setCreating(true);
     setCreateErr(null);
     try {
-      await createSession(cwd, newTitle.trim() || undefined);
+      const { sessionId } = await createSession(cwd, newTitle.trim() || undefined);
       setShowNew(false);
       setNewCwd("");
       setNewTitle("");
-      // Burst-refresh: the new live session appears once its process registers.
+      // Auto-open the new session's page once we know its id; otherwise fall
+      // back to a burst-refresh so it surfaces in the list on registration.
+      if (sessionId) {
+        navigate(`/s/${encodeURIComponent(sessionId)}`);
+        return;
+      }
       load();
       for (const delay of [1200, 2600, 4200]) setTimeout(load, delay);
     } catch (err) {
@@ -153,7 +158,11 @@ export function SessionList() {
       return next;
     });
     try {
-      await createSession(cwd);
+      const { sessionId } = await createSession(cwd);
+      if (sessionId) {
+        navigate(`/s/${encodeURIComponent(sessionId)}`);
+        return;
+      }
       load();
       for (const delay of [1200, 2600, 4200]) setTimeout(load, delay);
     } catch (err) {

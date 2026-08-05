@@ -45,11 +45,21 @@
       "id": "session-create",
       "area": "server+web",
       "title": "Create a live session in a directory",
-      "user_visible_behavior": "POST /api/sessions {cwd,title?} spawns `omp --mode rpc-ui`; the session appears live+controllable with the given title",
+      "user_visible_behavior": "POST /api/sessions {cwd,title?} spawns `omp --mode rpc-ui`; the session appears live+controllable with the given title. The response returns the sessionId once the child registers, and the web client navigates straight to /s/<id> so creating a session auto-opens its page.",
       "status": "passing",
-      "verification": ["POST /api/sessions with a temp cwd, then GET /api/sessions and confirm the entry is live:true, controllable:true with the title applied"],
-      "evidence": "verified 2026-08-05: created session registered live/controllable, pending title applied via pid correlation",
+      "verification": ["POST /api/sessions with a temp cwd and confirm the response includes a non-empty sessionId; GET /api/sessions/<id> returns live:true, controllable:true (the page the client auto-opens)"],
+      "evidence": "verified 2026-08-05 on :7399: POST returned {ok,pid,sessionId} in 0.66s; GET /api/sessions/<id> served live+controllable shell (msgs:0); spawned child deleted for cleanup. make check green (tsc web clean, bun test 1/1).",
       "notes": ""
+    },
+    {
+      "id": "session-resume",
+      "area": "server+web",
+      "title": "Resume an inactive session so it is never a dead-end",
+      "user_visible_behavior": "Opening an inactive session (not controllable, not recently written) auto-resumes it headlessly (`omp --mode rpc-ui --resume <id>`) so it becomes controllable and queryable. POST /api/sessions/:id/resume: no-op {ok,controllable:true} if already live to us; 409 if the session is live elsewhere (unsafe to double-own); 404 if unknown.",
+      "status": "passing",
+      "verification": ["POST /api/sessions/<inactive-id>/resume and confirm the session flips to controllable:true; POST resume on a controllable session returns {ok,controllable:true}; POST resume on an unknown id returns 404"],
+      "evidence": "verified 2026-08-05 on :7399: an inactive on-disk session (live:false,controllable:false, modified 2026-07-24) resumed to controllable:true with 126 messages loaded (child killed for cleanup, file left intact); controllable no-op returned {ok,controllable:true}; unknown id returned 404. make check green (tsc web clean, bun test 1/1).",
+      "notes": "Live-but-not-controllable sessions are intentionally left read-only: a recent write means another process likely owns the file, so a headless resume would double-own it (mirrors the delete 409 guard)."
     },
     {
       "id": "session-rename",

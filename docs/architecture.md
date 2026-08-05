@@ -45,11 +45,22 @@ the SDK at author-time; keep the local contracts (`Sdk`, `SessionInstance`,
 ## Key flows
 
 - **Create:** `POST /api/sessions {cwd,title?}` → `spawnSession` launches the
-  child → its extension registers on `/ws/agent` → server correlates the pid to
-  apply the pending title (`takePendingTitle`) → session appears controllable.
+  child and waits (bounded by the crash window) for its extension to register on
+  `/ws/agent`; that register correlates the pid to the sessionId
+  (`noteRegistered`) and applies the pending title (`takePendingTitle`). The
+  response returns `{ok,pid,sessionId?}` — the client navigates straight to
+  `/s/<sessionId>` to auto-open the new session, falling back to a list
+  burst-refresh when registration outran the wait.
 - **Control:** `POST /api/sessions/:id/command` or a live `PATCH`/rename →
   `dispatchCommand` → extension `applyCommand` calls `pi.sendUserMessage` /
   `pi.setSessionName` / `ctx.abort`.
+- **Resume:** `POST /api/sessions/:id/resume` → no-op if already controllable;
+  `409` if the session is live (recently written — likely owned by another
+  process, so a headless resume would double-own the file); otherwise
+  `resumeSession` launches `omp --mode rpc-ui --resume <id>` in the session's
+  cwd so an inactive session re-registers and becomes controllable. The web
+  `SessionView` calls this automatically when it opens an inactive session, so a
+  session is never a read-only dead-end.
 - **Delete:** spawned-by-us → SIGTERM + await exit, *then* unlink (avoids a
   final atomic rewrite resurrecting the file); external-live → `409` (never
   killed); otherwise → file unlink.

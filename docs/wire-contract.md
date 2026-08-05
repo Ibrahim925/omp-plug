@@ -25,7 +25,8 @@ the new field is stripped before anyone sees it.
 ## The shapes
 
 - `Command` (browser → server → extension): `prompt` · `steer` · `followup` ·
-  `answer` · `rename` · `abort`. Validated by `commandSchema` in `live.ts`.
+  `answer` · `rename` · `abort` · `dismiss`. Validated by `commandSchema` in
+  `live.ts`.
 - `LiveEvent` (extension → server → browser): `delta` · `toolStart` · `toolEnd`
   · `turnStart` · `turnEnd` · `idle`.
 - `AgentInbound` (extension → server): `register` · `event` · `deregister`.
@@ -48,7 +49,7 @@ the new field is stripped before anyone sees it.
 
 Quick audit — every command type appears in all three files:
 
-    for t in prompt steer followup answer rename abort; do
+    for t in prompt steer followup answer rename abort dismiss; do
       echo "$t:" $(grep -rl "\"$t\"\|'$t'\|literal(\"$t\")" server/src/types.ts server/src/live.ts extension/index.ts web/src/types.ts | wc -l) "files"
     done
     # expect 3-4 files each; a count of 1-2 means the mirror is broken

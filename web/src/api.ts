@@ -50,12 +50,18 @@ async function mutate<T>(path: string, method: string, body?: unknown): Promise<
   return (await res.json().catch(() => ({}))) as T;
 }
 
-export function createSession(cwd: string, title?: string): Promise<{ ok: true; pid: number }> {
+export function createSession(cwd: string, title?: string): Promise<{ ok: true; pid: number; sessionId?: string }> {
   return mutate("/api/sessions", "POST", { cwd, title });
 }
 
 export function deleteSession(id: string): Promise<{ ok: true }> {
   return mutate(`/api/sessions/${encodeURIComponent(id)}`, "DELETE");
+}
+
+export function resumeSession(
+  id: string,
+): Promise<{ ok: true; controllable?: boolean; pid?: number; sessionId?: string }> {
+  return mutate(`/api/sessions/${encodeURIComponent(id)}/resume`, "POST");
 }
 
 export function renameSession(id: string, title: string): Promise<{ ok: true }> {

@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import type { Server, ServerWebSocket } from "bun";
 
 import { AUTH } from "./auth.ts";
-import { deleteSession, getTranscript, listSessions, renameSession } from "./history.ts";
+import { deleteSession, getTranscript, listSessions, renameSession, resumeInfo } from "./history.ts";
 import {
   commandSchema,
   dispatchCommand,
@@ -26,7 +26,7 @@ import {
   liveMeta,
 } from "./live.ts";
 import type { WsData } from "./live.ts";
-import { isSpawned, SpawnError, spawnSession, stopSpawned } from "./spawn.ts";
+import { isSpawned, resumeSession, SpawnError, spawnSession, stopSpawned } from "./spawn.ts";
 import { addSubscription, notify, removeSubscription, subscriptionCount, vapidPublicKey } from "./push.ts";
 import type { SessionListItem, TranscriptResponse } from "./types.ts";
 
@@ -180,8 +180,8 @@ function start(): Server {
           const rawTitle = typeof body?.title === "string" ? body.title.trim() : "";
           const title = rawTitle ? rawTitle.slice(0, 200) : undefined;
           try {
-            const { pid } = await spawnSession({ cwd, title });
-            return json({ ok: true, pid }, 201);
+            const { pid, sessionId } = await spawnSession({ cwd, title });
+            return json({ ok: true, pid, sessionId }, 201);
           } catch (err) {
             if (err instanceof SpawnError) return json({ error: err.message }, 400);
             return json({ error: (err as Error).message }, 500);
@@ -231,6 +231,26 @@ function start(): Server {
           : liveMeta().find((m) => m.sessionId.startsWith(id))?.sessionId;
         const ok = target ? dispatchCommand(target, parsed.data) : false;
         return ok ? json({ ok: true }) : json({ error: "session not live" }, 409);
+      }
+
+      const resumeMatch = pathname.match(/^\/api\/sessions\/([^/]+)\/resume$/);
+      if (resumeMatch && req.method === "POST") {
+        const id = decodeURIComponent(resumeMatch[1]);
+        // Already driven by us — nothing to do.
+        if (isControllable(id)) return json({ ok: true, controllable: true });
+        const info = await resumeInfo(id);
+        if (!info) return json({ error: "session not found" }, 404);
+        // A recently-written session is likely owned by another process; a
+        // headless resume would double-own the file. Refuse (mirrors delete).
+        if (info.live) return json({ error: "session is live elsewhere; cannot resume" }, 409);
+        if (!info.cwd) return json({ error: "session has no directory to resume in" }, 400);
+        try {
+          const { pid, sessionId } = await resumeSession({ id: info.id, cwd: info.cwd });
+          return json({ ok: true, pid, sessionId });
+        } catch (err) {
+          if (err instanceof SpawnError) return json({ error: err.message }, 400);
+          return json({ error: (err as Error).message }, 500);
+        }
       }
 
       const idMatch = pathname.match(/^\/api\/sessions\/([^/]+)$/);

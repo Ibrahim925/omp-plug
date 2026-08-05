@@ -32,6 +32,45 @@ what a verification command actually confirmed.
 
 ## Session Records
 
+### 2026-08-05 (feature) — Resume inactive sessions (no read-only dead-ends)
+- Outcome: done + verified end to end.
+- Did: an inactive session (not controllable, not recently written) can be
+  resumed headlessly so it becomes queryable again. `spawn.ts` refactored to a
+  shared `launch()` + new `resumeSession({id,cwd})` (`omp --mode rpc-ui
+  --resume <id>`); `history.ts` `resumeInfo(id)` resolves id→{cwd,live};
+  `POST /api/sessions/:id/resume` (no-op if controllable, 409 if live elsewhere,
+  404 if unknown). Web: `api.resumeSession`; `SessionView` auto-resumes on open
+  when inactive (once-per-id guard + Resume/Retry affordance) and shows a
+  transient "Resuming…" note instead of the old blank dead-end; `.resume-btn`
+  CSS. Docs: architecture Resume flow, `session-resume` feature row.
+- Verification run: `make check` green (tsc web clean, bun test 1/1). E2E on
+  :7399: a real inactive on-disk session (live:false/controllable:false,
+  modified 2026-07-24) resumed to controllable:true with 126 messages loaded
+  (spawned child killed for cleanup, file left intact); resume on a controllable
+  session returned {ok,controllable:true}; unknown id → 404. Did NOT drive the
+  browser auto-resume UI this pass (server contract + client wiring verified;
+  the effect is a one-shot resumeSession→refetch on inactive load).
+- Risks / follow-ups: live-but-not-controllable sessions stay read-only by
+  design (recent write ⇒ another process may own the file; resuming would
+  double-own it, mirroring the delete 409). Resumed children persist until
+  delete/stop or server restart.
+
+### 2026-08-05 (feature) — Auto-open new session on create
+- Outcome: done + verified end to end.
+- Did: `POST /api/sessions` now returns `{ok,pid,sessionId?}`. `spawnSession`
+  races the child's `/ws/agent` register against exit/crash-window
+  (`onRegister` resolver on the tracked `Child`, resolved by `noteRegistered`
+  in `live.ts`), so the create response carries the sessionId when the child
+  registers within the wait. Web `createSession` returns the id; `SessionList`
+  create + project-add navigate to `/s/<id>` when present (burst-refresh
+  fallback otherwise). Docs: architecture Create flow, `session-create` row.
+- Verification run: `make check` green (tsc web clean, bun test 1/1). E2E on
+  :7399: POST returned a non-empty sessionId in 0.66s; `GET /api/sessions/<id>`
+  served a live+controllable shell (msgs:0) — the exact page the client opens;
+  spawned child deleted for cleanup. Did NOT drive the browser navigation in a
+  real headless session this pass (server contract + client wiring verified;
+  navigation is a one-line `navigate()` on the returned id).
+
 ### 2026-08-05 (feature) — Web Push notifications
 - Outcome: server path done + verified; device round-trip pending HTTPS.
 - Did: added `web-push` dep; `server/src/push.ts` (VAPID keygen persisted to

@@ -127,6 +127,9 @@ interface AnswerResultWire {
 interface RemoteAnswer {
   text: string;
   results?: AnswerResultWire[];
+  // Set when the dashboard dismissed the ask (the app's X / esc): every
+  // question resolves as cancelled instead of consuming text/results.
+  cancelled?: boolean;
 }
 interface QuestionOutcome {
   id: string;
@@ -224,13 +227,18 @@ function remoteAskResult(questions: AskQuestionParam[], answer: RemoteAnswer): A
   for (const r of answer.results ?? []) wire.set(r.id, r);
 
   // Legacy text-only answer to a multi-question ask has no per-question
-  // mapping — return the combined text verbatim.
-  if (questions.length > 1 && wire.size === 0) {
+  // mapping — return the combined text verbatim. A dismissal skips this: it
+  // carries no text and must resolve every question as cancelled below.
+  if (!answer.cancelled && questions.length > 1 && wire.size === 0) {
     return { content: [{ type: "text", text: `User answers:\n${answer.text}` }] };
   }
 
   const outcomes: QuestionOutcome[] = questions.map((q) => {
     const labels = q.options.map((o) => o.label);
+    // Dismissed (esc): no selection, no custom input — the cancelled outcome.
+    if (answer.cancelled) {
+      return { id: q.id, question: q.question, options: labels, multi: q.multi === true, selectedOptions: [] };
+    }
     const w = wire.get(q.id);
     let selectedOptions = (w?.selectedOptions ?? []).filter((l) => labels.includes(l));
     let customInput = w?.customInput?.trim() ? w.customInput : undefined;
@@ -428,6 +436,13 @@ export default function ompReport(pi: ExtensionAPI): void {
     try {
       if (type === "abort") {
         ctx?.abort();
+        return;
+      }
+      if (type === "dismiss") {
+        // App's X / esc: only the native override can resolve the blocked ask
+        // as cancelled (a genuine "User cancelled the selection" tool result).
+        // Without it there is no cancellable dialog to reach, so it's a no-op.
+        if (resolveRemoteAnswer) resolveRemoteAnswer({ text: "", cancelled: true });
         return;
       }
       const text = strProp(raw, "text");

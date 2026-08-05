@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { deleteSession, fetchTranscript, renameSession, sendCommand, subscribeLive } from "../api.ts";
+import { deleteSession, fetchTranscript, renameSession, resumeSession, sendCommand, subscribeLive } from "../api.ts";
 import { navigate } from "../router.ts";
 import type { AskAnswerResult, ImagePayload, LiveEvent, TranscriptResponse } from "../types.ts";
 import { Transcript } from "./Message.tsx";
@@ -21,6 +21,8 @@ export function SessionView({ id }: { id: string }) {
   const [acDismissed, setAcDismissed] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [nameInput, setNameInput] = useState("");
+  const [resuming, setResuming] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -28,6 +30,7 @@ export function SessionView({ id }: { id: string }) {
   const refetchTimer = useRef<number | undefined>(undefined);
   const fileInput = useRef<HTMLInputElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const resumedFor = useRef<string | null>(null);
 
   const doFetch = useCallback(async () => {
     lastFetch.current = Date.now();
@@ -51,6 +54,23 @@ export function SessionView({ id }: { id: string }) {
       }, REFETCH_THROTTLE_MS - since);
     }
   }, [doFetch]);
+
+  // Wake an inactive session: launch a headless resume so it becomes
+  // controllable again. Marks this id attempted so the auto-effect fires once,
+  // while an explicit retry can force another go by resetting the guard.
+  const doResume = useCallback(async () => {
+    resumedFor.current = id;
+    setResuming(true);
+    setResumeError(null);
+    try {
+      await resumeSession(id);
+      await doFetch();
+    } catch (err) {
+      setResumeError((err as Error).message);
+    } finally {
+      setResuming(false);
+    }
+  }, [id, doFetch]);
 
   const onEvent = useCallback(
     (event: LiveEvent) => {
@@ -93,6 +113,16 @@ export function SessionView({ id }: { id: string }) {
   }, [doFetch]);
 
   useEffect(() => subscribeLive(id, onEvent), [id, onEvent]);
+
+  // A session should never be a read-only dead-end: as soon as we see it's
+  // inactive (not controllable and not live elsewhere), resume it headlessly so
+  // it's queryable. Live-but-not-controllable sessions are owned by another
+  // process — those stay read-only (see the note below).
+  useEffect(() => {
+    if (!data || data.controllable || data.live) return;
+    if (resumedFor.current === id || resuming) return;
+    void doResume();
+  }, [data, id, resuming, doResume]);
 
   // Fallback poll: (a) live but non-controllable sessions have no event stream
   // to trigger refetches; (b) a long-running tool (an `ask` awaiting input) is
@@ -171,6 +201,16 @@ export function SessionView({ id }: { id: string }) {
     stick.current = true;
     try {
       await sendCommand(id, { type: "answer", text, results });
+      setWorking(true);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function onDismiss() {
+    stick.current = true;
+    try {
+      await sendCommand(id, { type: "dismiss" });
       setWorking(true);
     } catch (err) {
       setError((err as Error).message);
@@ -302,7 +342,12 @@ export function SessionView({ id }: { id: string }) {
           </div>
         )}
         {data && (
-          <Transcript messages={data.messages} controllable={data.controllable} onAnswer={onAnswer} />
+          <Transcript
+            messages={data.messages}
+            controllable={data.controllable}
+            onAnswer={onAnswer}
+            onDismiss={onDismiss}
+          />
         )}
 
         {preview && (
@@ -439,6 +484,28 @@ export function SessionView({ id }: { id: string }) {
           omp-report was installed (start a new omp session or <code>/resume</code> this one in a
           fresh launch); if that's not it, check the extension's URL/token in{" "}
           <code>~/.omp-plug.json</code>.
+        </div>
+      )}
+
+      {data && !data.controllable && !data.live && (
+        <div className="readonly-note">
+          {resuming ? (
+            "Resuming this session…"
+          ) : resumeError ? (
+            <>
+              Couldn&apos;t resume: {resumeError}{" "}
+              <button type="button" className="resume-btn" onClick={() => void doResume()}>
+                Retry
+              </button>
+            </>
+          ) : (
+            <>
+              This session is inactive.{" "}
+              <button type="button" className="resume-btn" onClick={() => void doResume()}>
+                Resume
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
