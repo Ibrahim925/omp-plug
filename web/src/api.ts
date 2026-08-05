@@ -30,10 +30,14 @@ export function fetchTranscript(id: string): Promise<TranscriptResponse> {
 }
 
 export async function sendCommand(id: string, command: Command): Promise<void> {
-  const res = await fetch(`/api/sessions/${encodeURIComponent(id)}/command`, {
-    method: "POST",
-    headers: authHeaders({ "content-type": "application/json" }),
-    body: JSON.stringify(command),
+  await mutate(`/api/sessions/${encodeURIComponent(id)}/command`, "POST", command);
+}
+
+async function mutate<T>(path: string, method: string, body?: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method,
+    headers: authHeaders(body === undefined ? undefined : { "content-type": "application/json" }),
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (res.status === 401) {
     notifyAuthRequired();
@@ -43,8 +47,25 @@ export async function sendCommand(id: string, command: Command): Promise<void> {
     const detail = await res.text().catch(() => "");
     throw new Error(`${res.status}${detail ? `: ${detail}` : ""}`);
   }
+  return (await res.json().catch(() => ({}))) as T;
 }
 
+export function createSession(cwd: string, title?: string): Promise<{ ok: true; pid: number }> {
+  return mutate("/api/sessions", "POST", { cwd, title });
+}
+
+export function deleteSession(id: string): Promise<{ ok: true }> {
+  return mutate(`/api/sessions/${encodeURIComponent(id)}`, "DELETE");
+}
+
+export function renameSession(id: string, title: string): Promise<{ ok: true }> {
+  return mutate(`/api/sessions/${encodeURIComponent(id)}`, "PATCH", { title });
+}
+
+
+export function deleteProject(cwd: string): Promise<{ ok: true; removed: number; skipped: number }> {
+  return mutate(`/api/projects?cwd=${encodeURIComponent(cwd)}`, "DELETE");
+}
 function wsUrl(path: string): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   const token = getToken();

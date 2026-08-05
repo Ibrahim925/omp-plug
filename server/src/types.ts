@@ -19,6 +19,10 @@ export interface SessionInstance {
   getEntries(): unknown[];
   getLeafId(): string | null | undefined;
   getHeader(): { id?: string; cwd?: string; title?: string } | undefined;
+  /** Persist a new display name. `source` "user" wins over generated titles. */
+  setSessionName(name: string, source?: "user" | "auto", trigger?: string): Promise<boolean>;
+  /** Flush and close the append writer. */
+  close(): Promise<void>;
 }
 
 export interface SessionManagerStatic {
@@ -46,8 +50,14 @@ export interface TranscriptContext {
   models?: { default?: string };
 }
 
+export interface SessionStorage {
+  /** Delete a session file and its sibling artifacts directory. */
+  deleteSessionWithArtifacts(sessionPath: string): Promise<void>;
+}
+
 export interface Sdk {
   SessionManager: SessionManagerStatic;
+  FileSessionStorage: new () => SessionStorage;
   buildSessionContext(
     entries: unknown[],
     leafId: string | null | undefined,
@@ -149,6 +159,7 @@ export type Command =
   | { type: "steer"; text: string; images?: ImagePayload[] }
   | { type: "followup"; text: string; images?: ImagePayload[] }
   | { type: "answer"; text: string; results?: AskAnswerResult[] }
+  | { type: "rename"; text: string }
   | { type: "abort" };
 
 /** Frames the extension (agent WS client) sends to the server. */

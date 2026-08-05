@@ -71,6 +71,7 @@ export type Command =
   | { type: "steer"; text: string; images?: ImagePayload[] }
   | { type: "followup"; text: string; images?: ImagePayload[] }
   | { type: "answer"; text: string; results?: AskAnswerResult[] }
+  | { type: "rename"; text: string }
   | { type: "abort" };
 
 export type ServerToClient =

@@ -110,8 +110,7 @@ export async function listSessions(): Promise<SessionListItem[]> {
 
 export async function getTranscript(id: string): Promise<TranscriptResponse | null> {
   const { SessionManager, buildSessionContext } = await getSdk();
-  const all = await SessionManager.listAll();
-  const meta = all.find((s) => s.id === id) ?? all.find((s) => s.id.startsWith(id));
+  const meta = await resolveMeta(id);
   if (!meta) return null;
 
   const sm = await SessionManager.open(meta.path);
@@ -139,4 +138,35 @@ export async function getTranscript(id: string): Promise<TranscriptResponse | nu
     controllable: false,
     messages,
   };
+}
+
+async function resolveMeta(id: string) {
+  const { SessionManager } = await getSdk();
+  const all = await SessionManager.listAll();
+  return all.find((s) => s.id === id) ?? all.find((s) => s.id.startsWith(id));
+}
+
+/** Delete a persisted session's file and artifacts. Returns false if unknown. */
+export async function deleteSession(id: string): Promise<boolean> {
+  const meta = await resolveMeta(id);
+  if (!meta) return false;
+  const { FileSessionStorage } = await getSdk();
+  await new FileSessionStorage().deleteSessionWithArtifacts(meta.path);
+  return true;
+}
+
+/**
+ * Rename a persisted (non-live) session by rewriting its header. Live sessions
+ * must be renamed through their own running instance (a `rename` command routed
+ * to the extension) — a second manager writing the same file would race the
+ * live writer.
+ */
+export async function renameSession(id: string, title: string): Promise<boolean> {
+  const meta = await resolveMeta(id);
+  if (!meta) return false;
+  const { SessionManager } = await getSdk();
+  const sm = await SessionManager.open(meta.path);
+  await sm.setSessionName(title, "user");
+  await sm.close();
+  return true;
 }

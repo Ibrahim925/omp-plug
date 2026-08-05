@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { fetchTranscript, sendCommand, subscribeLive } from "../api.ts";
+import { deleteSession, fetchTranscript, renameSession, sendCommand, subscribeLive } from "../api.ts";
 import { navigate } from "../router.ts";
 import type { AskAnswerResult, ImagePayload, LiveEvent, TranscriptResponse } from "../types.ts";
 import { Transcript } from "./Message.tsx";
@@ -19,6 +19,8 @@ export function SessionView({ id }: { id: string }) {
   const [attachments, setAttachments] = useState<(ImagePayload & { url: string })[]>([]);
   const [acIndex, setAcIndex] = useState(0);
   const [acDismissed, setAcDismissed] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [nameInput, setNameInput] = useState("");
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -183,6 +185,37 @@ export function SessionView({ id }: { id: string }) {
     }
   }
 
+  function startRename() {
+    setNameInput(data?.title ?? "");
+    setRenaming(true);
+  }
+
+  async function saveName() {
+    const title = nameInput.trim();
+    if (!title) {
+      setRenaming(false);
+      return;
+    }
+    try {
+      await renameSession(id, title);
+      setData((prev) => (prev ? { ...prev, title } : prev));
+      setRenaming(false);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function remove() {
+    const label = data?.title || "this session";
+    if (!window.confirm(`Delete "${label}"? This permanently removes it from disk.`)) return;
+    try {
+      await deleteSession(id);
+      navigate("/");
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
   // Slash-command autocomplete: active while the input is a single "/token"
   // (no whitespace), matched against the live session's advertised commands.
   const suggestions = useMemo(() => {
@@ -208,12 +241,50 @@ export function SessionView({ id }: { id: string }) {
           ‹
         </button>
         <div className="topbar-title">
-          <span className="row-title">{data?.title || "session"}</span>
+          {renaming ? (
+            <input
+              className="rename-input"
+              value={nameInput}
+              autoFocus
+              onChange={(e) => setNameInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveName();
+                else if (e.key === "Escape") setRenaming(false);
+              }}
+            />
+          ) : (
+            <span className="row-title">{data?.title || "session"}</span>
+          )}
           <span className="subtle small">
             {data?.project}
             {data?.model && ` · ${data.model}`}
             {data?.controllable ? " · live" : data?.live ? " · active" : data?.status ? ` · ${data.status}` : ""}
           </span>
+        </div>
+        <div className="topbar-actions">
+          {renaming ? (
+            <>
+              <button className="icon-btn" onClick={saveName} aria-label="Save name">
+                ✓
+              </button>
+              <button className="icon-btn" onClick={() => setRenaming(false)} aria-label="Cancel rename">
+                ×
+              </button>
+            </>
+          ) : (
+            <>
+              {data && (
+                <button className="icon-btn" onClick={startRename} aria-label="Rename session">
+                  ✎
+                </button>
+              )}
+              {data && (
+                <button className="icon-btn danger" onClick={remove} aria-label="Delete session">
+                  🗑
+                </button>
+              )}
+            </>
+          )}
         </div>
       </header>
 

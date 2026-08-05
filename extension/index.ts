@@ -450,6 +450,24 @@ export default function ompReport(pi: ExtensionAPI): void {
         }
         return;
       }
+      if (type === "rename") {
+        if (!text) return;
+        // Rename through the live instance so the session's own writer persists
+        // it (no second writer racing the file), then re-announce so the
+        // dashboard list reflects the new title without waiting on the file poll.
+        void (async () => {
+          try {
+            await pi.setSessionName(text);
+            if (meta) {
+              meta.title = text;
+              announce();
+            }
+          } catch {
+            // rename failed (empty/invalid) — leave the existing title
+          }
+        })();
+        return;
+      }
       const images = readImages(raw);
       if (!text && images.length === 0) return;
       // Multimodal: when images are attached, build a content array (text block

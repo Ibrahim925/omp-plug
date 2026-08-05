@@ -12,6 +12,7 @@ import { z } from "zod";
 import type { ServerWebSocket } from "bun";
 
 import { AUTH } from "./auth.ts";
+import { takePendingTitle } from "./spawn.ts";
 import type { Command, LiveEvent, LiveSessionMeta } from "./types.ts";
 
 export type WsData =
@@ -93,6 +94,7 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion("type", [
       .max(50)
       .optional(),
   }),
+  z.object({ type: z.literal("rename"), text: z.string().min(1).max(200) }),
   z.object({ type: z.literal("abort") }),
 ]);
 
@@ -129,6 +131,16 @@ export function liveCommands(sessionId: string): LiveSessionMeta["commands"] {
   return agents.get(sessionId)?.meta.commands;
 }
 
+/** Resolve a live agent's metadata by exact id or unique id prefix. */
+export function liveAgent(id: string): LiveSessionMeta | undefined {
+  const exact = agents.get(id);
+  if (exact) return exact.meta;
+  for (const agent of agents.values()) {
+    if (agent.meta.sessionId.startsWith(id)) return agent.meta;
+  }
+  return undefined;
+}
+
 export function dispatchCommand(sessionId: string, command: Command): boolean {
   const agent = agents.get(sessionId);
   if (!agent) return false;
@@ -149,6 +161,13 @@ export function handleAgentMessage(ws: Ws, raw: string | Buffer): void {
     }
     if (ws.data.role === "agent") ws.data.sessionId = msg.meta.sessionId;
     agents.set(msg.meta.sessionId, { meta: msg.meta, ws });
+    // A dashboard-created session carries a requested title; apply it now that
+    // the live instance exists (race-free rename via the session's own writer).
+    const title = takePendingTitle(msg.meta.pid);
+    if (title) {
+      msg.meta.title = title;
+      send(ws, { type: "rename", text: title } satisfies Command);
+    }
     broadcastLive();
     return;
   }

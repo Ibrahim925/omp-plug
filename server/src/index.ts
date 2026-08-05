@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import type { Server, ServerWebSocket } from "bun";
 
 import { AUTH } from "./auth.ts";
-import { getTranscript, listSessions } from "./history.ts";
+import { deleteSession, getTranscript, listSessions, renameSession } from "./history.ts";
 import {
   commandSchema,
   dispatchCommand,
@@ -21,10 +21,12 @@ import {
   handleClose,
   handleOpen,
   isControllable,
+  liveAgent,
   liveCommands,
   liveMeta,
 } from "./live.ts";
 import type { WsData } from "./live.ts";
+import { isSpawned, SpawnError, spawnSession, stopSpawned } from "./spawn.ts";
 import type { SessionListItem, TranscriptResponse } from "./types.ts";
 
 const HOST = process.env.HOST || "0.0.0.0";
@@ -150,8 +152,51 @@ function start(): Server {
         return srv.upgrade(req, { data }) ? undefined : new Response("upgrade failed", { status: 426 });
       }
       if (pathname === "/api/sessions") {
+        if (req.method === "POST") {
+          const body = (await req.json().catch(() => undefined)) as
+            | { cwd?: unknown; title?: unknown }
+            | undefined;
+          const cwd = typeof body?.cwd === "string" ? body.cwd.trim() : "";
+          if (!cwd) return json({ error: "cwd is required" }, 400);
+          const rawTitle = typeof body?.title === "string" ? body.title.trim() : "";
+          const title = rawTitle ? rawTitle.slice(0, 200) : undefined;
+          try {
+            const { pid } = await spawnSession({ cwd, title });
+            return json({ ok: true, pid }, 201);
+          } catch (err) {
+            if (err instanceof SpawnError) return json({ error: err.message }, 400);
+            return json({ error: (err as Error).message }, 500);
+          }
+        }
         try {
           return json(await sessionList());
+        } catch (err) {
+          return json({ error: (err as Error).message }, 500);
+        }
+      }
+
+      // Remove a whole project: delete every session rooted at `cwd` from disk
+      // (killing any we spawned) and let the now-empty group vanish from the
+      // list. The directory itself is never touched. Live sessions we did NOT
+      // launch are left running and reported as skipped.
+      if (pathname === "/api/projects" && req.method === "DELETE") {
+        const cwd = url.searchParams.get("cwd");
+        if (!cwd) return json({ error: "cwd is required" }, 400);
+        try {
+          const targets = (await sessionList()).filter((s) => (s.cwd || "") === cwd);
+          let removed = 0;
+          let skipped = 0;
+          for (const s of targets) {
+            const agent = liveAgent(s.id);
+            if (agent && !isSpawned(agent.pid)) {
+              skipped += 1;
+              continue;
+            }
+            if (agent) await stopSpawned(agent.pid);
+            await deleteSession(s.id).catch(() => false);
+            removed += 1;
+          }
+          return json({ ok: true, removed, skipped });
         } catch (err) {
           return json({ error: (err as Error).message }, 500);
         }
@@ -172,6 +217,45 @@ function start(): Server {
       const idMatch = pathname.match(/^\/api\/sessions\/([^/]+)$/);
       if (idMatch) {
         const id = decodeURIComponent(idMatch[1]);
+
+        if (req.method === "DELETE") {
+          try {
+            const agent = liveAgent(id);
+            if (agent) {
+              // Only terminate sessions this server launched; never kill a
+              // user's own terminal session out from under them.
+              if (!isSpawned(agent.pid)) {
+                return json({ error: "session is live; stop it before deleting" }, 409);
+              }
+              await stopSpawned(agent.pid);
+            }
+            const removed = await deleteSession(id);
+            if (!removed && !agent) return json({ error: "session not found" }, 404);
+            return json({ ok: true });
+          } catch (err) {
+            return json({ error: (err as Error).message }, 500);
+          }
+        }
+
+        if (req.method === "PATCH") {
+          const body = (await req.json().catch(() => undefined)) as { title?: unknown } | undefined;
+          const title = typeof body?.title === "string" ? body.title.trim().slice(0, 200) : "";
+          if (!title) return json({ error: "title is required" }, 400);
+          try {
+            const agent = liveAgent(id);
+            // Live: rename through the running instance (race-free); persisted:
+            // rewrite the header directly.
+            if (agent) {
+              dispatchCommand(agent.sessionId, { type: "rename", text: title });
+              return json({ ok: true });
+            }
+            const ok = await renameSession(id, title);
+            return ok ? json({ ok: true }) : json({ error: "session not found" }, 404);
+          } catch (err) {
+            return json({ error: (err as Error).message }, 500);
+          }
+        }
+
         try {
           const result = await transcript(id);
           return result ? json(result) : json({ error: "session not found" }, 404);

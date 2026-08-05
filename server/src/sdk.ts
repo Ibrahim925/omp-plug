@@ -27,6 +27,7 @@ async function resolve(): Promise<Sdk> {
         mod &&
         typeof mod === "object" &&
         "SessionManager" in mod &&
+        "FileSessionStorage" in mod &&
         "buildSessionContext" in mod
       ) {
         // Library boundary: the SDK's own types are not build-time visible from
