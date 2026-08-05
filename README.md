@@ -1,11 +1,31 @@
-# omp-plug
+<div align="center">
 
-A self-hosted web dashboard for [omp](https://www.npmjs.com/package/@oh-my-pi/pi-coding-agent) coding-agent sessions, built to be driven from a phone.
+<img src="web/public/icon-512.png" width="88" alt="omp-plug" />
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-black.svg)](LICENSE)
-![Bun](https://img.shields.io/badge/Bun-1.3.14-black)
+<h1>omp-plug</h1>
 
-You run `omp` on your machine. omp-plug lets you watch and steer those sessions from a browser anywhere — usually your phone, over Tailscale — without walking back to the keyboard. See every session, drive a live one (prompt, steer, answer its questions, abort), and create, rename, resume, or delete sessions and projects. The desktop layout is a first-class peer, not a stretched phone view.
+<p><b>Drive your omp coding agents from your phone.</b></p>
+
+<p>A self-hosted, mobile-first dashboard to watch, create, and steer live<br /><a href="https://www.npmjs.com/package/@oh-my-pi/pi-coding-agent">omp</a> coding-agent sessions from any browser — usually over Tailscale.</p>
+
+<p>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-black.svg" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/Bun-1.3.14-black" alt="Bun 1.3.14" />
+  <img src="https://img.shields.io/badge/platform-macOS%20%C2%B7%20Linux-black" alt="Platform: macOS and Linux" />
+</p>
+
+<p>
+  <a href="#what-you-get">Features</a> ·
+  <a href="#how-it-fits-together">How it works</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#contributing">Contributing</a>
+</p>
+
+</div>
+
+---
+
+You run `omp` on your machine. omp-plug lets you watch and steer those sessions from a browser anywhere, without walking back to the keyboard. See every session, drive a live one (prompt, steer, answer its questions, abort), and create, rename, resume, or delete sessions and projects. The desktop layout is a first-class peer, not a stretched phone view.
 
 ## Why this exists
 
