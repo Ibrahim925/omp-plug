@@ -32,6 +32,35 @@ what a verification command actually confirmed.
 
 ## Session Records
 
+### 2026-08-05 (feature) — `!` / `!!` shell escapes from the dashboard composer
+- Outcome: done + verified end to end.
+- Did: the composer now runs omp-style shell escapes. `!cmd` runs a shell
+  command on the host (session cwd) and streams the result to the dashboard;
+  `!!cmd` is a private peek. Mechanism: `sendUserMessage` bypasses omp's TUI
+  input layer where `!`/`/` are parsed (confirmed by reading the SDK:
+  input-controller.ts), and the SDK exposes no public slash/bash executor — only
+  `pi.exec`. So the extension (`applyCommand`) intercepts a leading `!`, runs
+  `pi.exec("/bin/sh",["-c",cmd],{cwd})`, and emits a new `bash` LiveEvent
+  `{command,output,code,excluded}`. For `!` (not excluded) it also
+  `pi.sendMessage({content,display:false},{deliverAs:"nextTurn"})` so the agent
+  gets the output next turn without triggering one; `!!` skips that. Wire change
+  applied in all four spots (extension LiveEvent, server types.ts + live.ts zod,
+  web types.ts) per wire-contract; web renders `.bash-run` blocks and the
+  composer no longer flips to "working" for `!` lines. Docs: wire-contract bash
+  event, feature_list `dashboard-shell-escape`.
+- Verification run: `make check` green (tsc web clean, bun test 1/1); impeccable
+  detector clean. E2E on :7317 in a FRESH session (symlinked extension → new
+  code loads): `!echo hello from bash && date +%Y` → un-tagged bash block
+  "hello from bash / 2026"; `!!pwd` → PRIVATE dashed block "/private/tmp/
+  omp-plug-e2e"; no stuck working indicator; a follow-up model turn quoted the
+  `!` output from context and omitted the `!!` output — proving the context feed
+  and exclusion. Test session deleted; 0 rpc-ui procs left.
+- Risks / follow-ups: bash output is live-only (a `bash` event), not persisted
+  in the session file, so it disappears on reload — acceptable for a shell
+  peek, but note it. Slash (`/`) and python (`$`) escapes remain unsupported
+  (no public SDK executor). Existing already-running sessions won't have the
+  feature until they restart (they loaded the old extension).
+
 ### 2026-08-05 (feature) — Resume inactive sessions (no read-only dead-ends)
 - Outcome: done + verified end to end.
 - Did: an inactive session (not controllable, not recently written) can be

@@ -28,7 +28,10 @@ the new field is stripped before anyone sees it.
   `answer` · `rename` · `abort` · `dismiss`. Validated by `commandSchema` in
   `live.ts`.
 - `LiveEvent` (extension → server → browser): `delta` · `toolStart` · `toolEnd`
-  · `turnStart` · `turnEnd` · `idle`.
+  · `turnStart` · `turnEnd` · `idle` · `bash`. The `bash` event carries a
+  dashboard shell escape (`!cmd` / `!!cmd`) run by the extension via `pi.exec`:
+  `{ command, output, code, excluded }`. `excluded` (the `!!` variant) means the
+  output was NOT fed to the agent's context. Validated by `liveEventSchema`.
 - `AgentInbound` (extension → server): `register` · `event` · `deregister`.
 - `ClientInbound` (browser → server): `subscribe`.
 - `ServerToClient` (server → browser): `event` · `live`.

@@ -95,10 +95,41 @@ body {
   background: var(--accent-weak);
 }
 
+/* Authored line icons: scale with the button's font-size, align on the text. */
+.icon {
+  width: 1em;
+  height: 1em;
+  flex: none;
+  display: inline-block;
+  vertical-align: -0.14em;
+}
+/* Fixed-size icon buttons center via grid/flex; drop the UA <button> padding
+   (1px 6px) that shrinks the cell below the icon and knocks it off-center. */
+.new-btn,
+.grp-btn,
+.back,
+.icon-btn {
+  padding: 0;
+}
+
 .page {
   display: flex;
   flex-direction: column;
   height: 100%;
+}
+/* Wide viewports get a real layout, not a stretched phone: cap each surface to
+   a centered column — the list stays scannable, the transcript holds a readable
+   measure. Below these widths (every phone) the cap is inert. */
+.page-list,
+.page-session {
+  width: 100%;
+  margin-inline: auto;
+}
+.page-list {
+  max-width: 920px;
+}
+.page-session {
+  max-width: 760px;
 }
 
 /* ---- top bar ---- */
@@ -686,15 +717,19 @@ body {
   color: var(--fg-faint);
   font-size: 12.5px;
   list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 .thinking > summary::-webkit-details-marker {
   display: none;
 }
-.thinking > summary::before {
-  content: "▸ ";
+.thinking-caret {
+  color: var(--fg-faint);
+  transition: transform 0.15s ease;
 }
-.thinking[open] > summary::before {
-  content: "▾ ";
+.thinking[open] > summary .thinking-caret {
+  transform: rotate(90deg);
 }
 .thinking .text {
   color: var(--fg-muted);
@@ -712,7 +747,7 @@ body {
 .tool-head {
   display: flex;
   gap: 8px;
-  align-items: baseline;
+  align-items: center;
   width: 100%;
   padding: 7px 11px;
   border: none;
@@ -730,8 +765,18 @@ body {
   color: var(--fg-faint);
   flex: none;
 }
+.tool-caret .icon {
+  font-size: 14px;
+  transition: transform 0.15s ease;
+}
+.tool-caret .icon.open {
+  transform: rotate(90deg);
+}
 .tool-status {
   flex: none;
+}
+.tool-status .icon {
+  font-size: 15px;
 }
 .tool-status-ok {
   color: var(--success);
@@ -834,7 +879,7 @@ body {
 .ask-option {
   display: flex;
   gap: 9px;
-  align-items: baseline;
+  align-items: flex-start;
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--border);
@@ -858,6 +903,11 @@ body {
 .ask-mark {
   flex: none;
   color: var(--accent);
+  display: flex;
+}
+.ask-mark .icon {
+  font-size: 17px;
+  margin-top: 0.5px;
 }
 .ask-option-body {
   display: flex;
@@ -1016,6 +1066,63 @@ pre {
   to {
     opacity: 0;
   }
+}
+
+/* ---- dashboard shell (! / !!) output ---- */
+.bash-run {
+  margin: 0 0 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  background: var(--panel);
+}
+.bash-run.private {
+  border-style: dashed;
+}
+.bash-cmd {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 11px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.bash-sigil {
+  color: var(--fg-faint);
+  flex: none;
+}
+.bash-cmd-text {
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+.bash-tag {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--sans);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-faint);
+}
+.bash-out {
+  margin: 0;
+  padding: 10px 11px;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  overflow: auto;
+}
+.bash-exit {
+  padding: 6px 11px;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--danger);
 }
 
 /* ---- composer wrap + attachments ---- */

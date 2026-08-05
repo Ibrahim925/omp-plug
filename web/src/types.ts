@@ -53,7 +53,8 @@ export type LiveEvent =
   | { kind: "toolEnd"; name?: string }
   | { kind: "turnStart" }
   | { kind: "turnEnd" }
-  | { kind: "idle" };
+  | { kind: "idle" }
+  | { kind: "bash"; command: string; output: string; code: number; excluded: boolean };
 
 export interface ImagePayload {
   mimeType: string;

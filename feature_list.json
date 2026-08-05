@@ -122,6 +122,16 @@
       "notes": "implemented (Command plane + extension applyCommand); needs a verification pass with a real turn"
     },
     {
+      "id": "dashboard-shell-escape",
+      "area": "server+web+extension",
+      "title": "Run ! / !! shell escapes from the composer",
+      "user_visible_behavior": "Typing `!cmd` in the composer runs a shell command on the host (session cwd) and shows its output inline as a bash block; `!!cmd` does the same but keeps it private (dashed border + PRIVATE tag). `!` feeds the output into the agent's next-turn context; `!!` does not. No agent turn is triggered. Mirrors omp's TUI ! / !! shell escape, which sendUserMessage otherwise bypassed.",
+      "status": "passing",
+      "verification": ["from the composer send `!echo hi && date +%Y` (expect an un-tagged bash block with the output) and `!!pwd` (expect a PRIVATE, dashed bash block); confirm no 'working' indicator sticks; then send a normal prompt asking what dashboard shell output is in context and confirm the ! output is quoted but the !! output is not"],
+      "evidence": "verified 2026-08-05 on :7317 in a fresh session (new extension loaded): `!echo hello from bash && date +%Y` rendered output 'hello from bash / 2026' un-tagged; `!!pwd` rendered '/private/tmp/omp-plug-e2e' with PRIVATE tag + dashed border; no working indicator; a follow-up prompt quoted exactly the ! block and omitted the !! output, proving pi.sendMessage nextTurn context feed for ! and exclusion for !!. make check green (tsc web clean, bun test 1/1); detector clean.",
+      "notes": "Extension runs the command via pi.exec (public API); the SDK exposes no way to invoke omp's native BashExecutionMessage or slash-command executor, so output shows via a new `bash` LiveEvent and is live-only (not persisted in the session transcript file). Slash (/) and python ($) escapes are out of scope."
+    },
+    {
       "id": "native-ask-answer",
       "area": "server+web+extension",
       "title": "Answer a pending ask from the dashboard",

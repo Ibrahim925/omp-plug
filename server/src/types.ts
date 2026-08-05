@@ -138,7 +138,8 @@ export type LiveEvent =
   | { kind: "toolEnd"; name?: string }
   | { kind: "turnStart" }
   | { kind: "turnEnd" }
-  | { kind: "idle" };
+  | { kind: "idle" }
+  | { kind: "bash"; command: string; output: string; code: number; excluded: boolean };
 
 /** Inline image attached to a control command (base64, no data: prefix). */
 export interface ImagePayload {

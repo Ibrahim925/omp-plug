@@ -38,7 +38,8 @@ type LiveEvent =
   | { kind: "toolEnd"; name?: string }
   | { kind: "turnStart" }
   | { kind: "turnEnd" }
-  | { kind: "idle" };
+  | { kind: "idle" }
+  | { kind: "bash"; command: string; output: string; code: number; excluded: boolean };
 
 interface SessionCtx {
   hasUI: boolean;
@@ -483,6 +484,13 @@ export default function ompReport(pi: ExtensionAPI): void {
         })();
         return;
       }
+      // `!cmd` / `!!cmd`: a dashboard shell escape mirroring omp's TUI. Run it on
+      // the host and stream the result to the dashboard; `!` also feeds the
+      // output into the agent's next-turn context, `!!` keeps it a private peek.
+      if ((type === "prompt" || type === "steer" || type === "followup") && text && text.trim().startsWith("!")) {
+        void runBash(text.trim());
+        return;
+      }
       const images = readImages(raw);
       if (!text && images.length === 0) return;
       // Multimodal: when images are attached, build a content array (text block
@@ -497,6 +505,35 @@ export default function ompReport(pi: ExtensionAPI): void {
       else if (type === "prompt") pi.sendUserMessage(content);
     } catch {
       // never let a bad command take down the session
+    }
+  }
+
+  async function runBash(input: string): Promise<void> {
+    const excluded = input.startsWith("!!");
+    const command = input.slice(excluded ? 2 : 1).trim();
+    if (!command) return;
+    let output: string;
+    let code: number;
+    try {
+      const res = await pi.exec("/bin/sh", ["-c", command], { cwd: ctx?.cwd });
+      const parts = [res.stdout, res.stderr].filter((s) => s && s.length > 0);
+      output = parts.join("\n").trimEnd();
+      code = res.code;
+    } catch (err) {
+      output = `omp-plug: could not run command: ${(err as Error).message}`;
+      code = -1;
+    }
+    emit({ kind: "bash", command, output, code, excluded });
+    // `!` (not `!!`) shares the result with the agent as hidden context for the
+    // next turn — no turn is triggered now, mirroring omp. display:false keeps it
+    // out of the dashboard transcript; the bash event already rendered it.
+    if (!excluded) {
+      const block = `[dashboard shell] $ ${command}\n\n${output || "(no output)"}\n\n(exit ${code})`;
+      try {
+        pi.sendMessage({ customType: "ompPlugBash", content: block, display: false }, { deliverAs: "nextTurn" });
+      } catch {
+        // context feed is best-effort; the operator still saw the output
+      }
     }
   }
 

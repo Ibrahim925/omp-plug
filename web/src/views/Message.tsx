@@ -4,6 +4,15 @@ import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 
 import type { AskAnswerResult, WireBlock, WireMessage } from "../types.ts";
+import {
+  CheckIcon,
+  CheckSquareIcon,
+  ChevronRightIcon,
+  CircleIcon,
+  CloseIcon,
+  RadioDotIcon,
+  SquareIcon,
+} from "./icons.tsx";
 
 const ROLE_LABEL: Record<string, string> = {
   user: "You",
@@ -129,7 +138,7 @@ function Block({ block, plain = false }: { block: WireBlock; plain?: boolean }) 
     case "thinking":
       return (
         <details className="thinking">
-          <summary>thinking</summary>
+          <summary><ChevronRightIcon className="thinking-caret" />thinking</summary>
           <Markdown text={block.text} />
         </details>
       );
@@ -155,13 +164,17 @@ function ToolUnit({ call, result }: { call: ToolCallBlock; result?: WireMessage 
   const hasArgs =
     args != null && !(typeof args === "object" && Object.keys(args as object).length === 0);
   const status = !result ? "pending" : result.isError ? "error" : "ok";
-  const glyph = status === "pending" ? "…" : status === "error" ? "✗" : "✓";
+  const StatusIcon = status === "pending" ? CircleIcon : status === "error" ? CloseIcon : CheckIcon;
 
   return (
     <div className={`tool tool-${status}`}>
       <button type="button" className="tool-head" onClick={() => setOpen((o) => !o)}>
-        <span className="tool-caret">{open ? "▾" : "▸"}</span>
-        <span className={`tool-status tool-status-${status}`}>{glyph}</span>
+        <span className="tool-caret">
+          <ChevronRightIcon className={open ? "open" : ""} />
+        </span>
+        <span className={`tool-status tool-status-${status}`}>
+          <StatusIcon />
+        </span>
         <span className="tool-name">{call.name ?? "tool"}</span>
         {call.intent && <span className="tool-intent">{call.intent}</span>}
         <span className="tool-summary">{summarize(result)}</span>
@@ -263,7 +276,7 @@ function AskForm({
         disabled={busy}
         onClick={dismiss}
       >
-        ✕
+        <CloseIcon />
       </button>
       {questions.map((q) => {
         const picks = selected[q.id] ?? [];
@@ -283,7 +296,9 @@ function AskForm({
                     className={`ask-option${on ? " on" : ""}`}
                     onClick={() => pick(q, label)}
                   >
-                    <span className="ask-mark">{on ? (q.multi ? "☑" : "●") : q.multi ? "☐" : "○"}</span>
+                    <span className="ask-mark">
+                      {on ? (q.multi ? <CheckSquareIcon /> : <RadioDotIcon />) : q.multi ? <SquareIcon /> : <CircleIcon />}
+                    </span>
                     <span className="ask-option-body">
                       <span className="ask-option-label">
                         {label}
@@ -328,7 +343,7 @@ function AskStatic({ questions }: { questions: AskQuestion[] }) {
           <div className="ask-options">
             {q.options.map((o) => (
               <div className="ask-option static" key={o.label}>
-                <span className="ask-mark">○</span>
+                <span className="ask-mark"><CircleIcon /></span>
                 <span className="ask-option-body">
                   <span className="ask-option-label">{o.label}</span>
                   {o.description && <span className="ask-option-desc">{o.description}</span>}

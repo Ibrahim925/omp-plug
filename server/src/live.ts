@@ -60,6 +60,13 @@ const liveEventSchema: z.ZodType<LiveEvent> = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("turnStart") }),
   z.object({ kind: z.literal("turnEnd") }),
   z.object({ kind: z.literal("idle") }),
+  z.object({
+    kind: z.literal("bash"),
+    command: z.string(),
+    output: z.string(),
+    code: z.number(),
+    excluded: z.boolean(),
+  }),
 ]);
 
 const agentInboundSchema = z.discriminatedUnion("type", [

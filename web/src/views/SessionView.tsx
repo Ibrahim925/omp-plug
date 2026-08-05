@@ -4,6 +4,7 @@ import { deleteSession, fetchTranscript, renameSession, resumeSession, sendComma
 import { navigate } from "../router.ts";
 import type { AskAnswerResult, ImagePayload, LiveEvent, TranscriptResponse } from "../types.ts";
 import { Transcript } from "./Message.tsx";
+import { CheckIcon, ChevronLeftIcon, CloseIcon, PaperclipIcon, PencilIcon, StopIcon, TrashIcon } from "./icons.tsx";
 
 const REFETCH_THROTTLE_MS = 1200;
 const FALLBACK_POLL_MS = 5000;
@@ -23,6 +24,9 @@ export function SessionView({ id }: { id: string }) {
   const [nameInput, setNameInput] = useState("");
   const [resuming, setResuming] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
+  const [bashRuns, setBashRuns] = useState<
+    { id: number; command: string; output: string; code: number; excluded: boolean }[]
+  >([]);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -103,6 +107,18 @@ export function SessionView({ id }: { id: string }) {
           setTool(null);
           scheduleRefetch();
           break;
+        case "bash":
+          setBashRuns((prev) => [
+            ...prev,
+            {
+              id: prev.length ? prev[prev.length - 1].id + 1 : 1,
+              command: event.command,
+              output: event.output,
+              code: event.code,
+              excluded: event.excluded,
+            },
+          ]);
+          break;
       }
     },
     [scheduleRefetch],
@@ -111,6 +127,10 @@ export function SessionView({ id }: { id: string }) {
   useEffect(() => {
     doFetch();
   }, [doFetch]);
+
+  useEffect(() => {
+    setBashRuns([]);
+  }, [id]);
 
   useEffect(() => subscribeLive(id, onEvent), [id, onEvent]);
 
@@ -189,7 +209,9 @@ export function SessionView({ id }: { id: string }) {
       await sendCommand(id, { type: working ? "steer" : "prompt", text: body, images });
       setInput("");
       setAttachments([]);
-      setWorking(true);
+      // `!`/`!!` shell escapes don't start an agent turn — the extension runs
+      // them out of band and streams a `bash` event back.
+      if (!text.startsWith("!")) setWorking(true);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -275,10 +297,10 @@ export function SessionView({ id }: { id: string }) {
   }
 
   return (
-    <div className="page">
+    <div className="page page-session">
       <header className="topbar">
         <button className="back" onClick={() => navigate("/")} aria-label="Back">
-          ‹
+          <ChevronLeftIcon />
         </button>
         <div className="topbar-title">
           {renaming ? (
@@ -305,22 +327,22 @@ export function SessionView({ id }: { id: string }) {
           {renaming ? (
             <>
               <button className="icon-btn" onClick={saveName} aria-label="Save name">
-                ✓
+                <CheckIcon />
               </button>
               <button className="icon-btn" onClick={() => setRenaming(false)} aria-label="Cancel rename">
-                ×
+                <CloseIcon />
               </button>
             </>
           ) : (
             <>
               {data && (
                 <button className="icon-btn" onClick={startRename} aria-label="Rename session">
-                  ✎
+                  <PencilIcon />
                 </button>
               )}
               {data && (
                 <button className="icon-btn danger" onClick={remove} aria-label="Delete session">
-                  🗑
+                  <TrashIcon />
                 </button>
               )}
             </>
@@ -361,6 +383,18 @@ export function SessionView({ id }: { id: string }) {
           </div>
         )}
 
+        {bashRuns.map((b) => (
+          <div className={`bash-run${b.excluded ? " private" : ""}`} key={b.id}>
+            <div className="bash-cmd">
+              <span className="bash-sigil">$</span>
+              <span className="bash-cmd-text">{b.command}</span>
+              {b.excluded && <span className="bash-tag">private</span>}
+            </div>
+            {b.output && <pre className="bash-out">{b.output}</pre>}
+            {b.code !== 0 && <div className="bash-exit">exit {b.code}</div>}
+          </div>
+        ))}
+
         {tool && <div className="tool-running">running {tool}…</div>}
         {working && !preview && !tool && <div className="tool-running">working…</div>}
 
@@ -396,7 +430,7 @@ export function SessionView({ id }: { id: string }) {
                     aria-label="Remove attachment"
                     onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
                   >
-                    ×
+                    <CloseIcon />
                   </button>
                 </div>
               ))}
@@ -420,7 +454,7 @@ export function SessionView({ id }: { id: string }) {
               onClick={() => fileInput.current?.click()}
               aria-label="Attach image"
             >
-              +
+              <PaperclipIcon />
             </button>
             <textarea
               ref={textarea}
@@ -464,7 +498,7 @@ export function SessionView({ id }: { id: string }) {
             />
             {working && (
               <button className="composer-btn stop" onClick={stop} aria-label="Stop">
-                ■
+                <StopIcon />
               </button>
             )}
             <button

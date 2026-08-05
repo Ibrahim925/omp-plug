@@ -5,6 +5,7 @@ import { humanBytes, relTime } from "../format.ts";
 import { navigate } from "../router.ts";
 import { currentPushState, disablePush, enablePush, type PushState } from "../push.ts";
 import type { SessionListItem } from "../types.ts";
+import { BellIcon, BellOffIcon, ChevronRightIcon, CloseIcon, PlusIcon, TrashIcon } from "./icons.tsx";
 
 const POLL_MS = 15_000;
 
@@ -16,14 +17,14 @@ interface Group {
   live: number;
 }
 
-// Bell glyph + tooltip for each push state. Disabled states explain the reason
+// Tooltip + enabled-ness for each push state. Disabled states explain the reason
 // (notably `insecure`: push needs HTTPS, which over Tailscale means `serve`).
-const PUSH_UI: Record<PushState, { icon: string; title: string; disabled: boolean }> = {
-  on: { icon: "🔔", title: "Phone notifications on — tap to turn off", disabled: false },
-  off: { icon: "🔕", title: "Turn on phone notifications", disabled: false },
-  denied: { icon: "🔕", title: "Notifications blocked — allow them in your browser settings", disabled: true },
-  insecure: { icon: "🔕", title: "Push needs HTTPS — serve the dashboard over `tailscale serve`", disabled: true },
-  unsupported: { icon: "🔕", title: "This browser can't do push notifications", disabled: true },
+const PUSH_UI: Record<PushState, { title: string; disabled: boolean }> = {
+  on: { title: "Phone notifications on — tap to turn off", disabled: false },
+  off: { title: "Turn on phone notifications", disabled: false },
+  denied: { title: "Notifications blocked — allow them in your browser settings", disabled: true },
+  insecure: { title: "Push needs HTTPS — serve the dashboard over `tailscale serve`", disabled: true },
+  unsupported: { title: "This browser can't do push notifications", disabled: true },
 };
 
 export function SessionList() {
@@ -187,7 +188,7 @@ export function SessionList() {
   }
 
   return (
-    <div className="page">
+    <div className="page page-list">
       <header className="topbar">
         <h1>omp</h1>
         <span className="subtle">
@@ -202,10 +203,10 @@ export function SessionList() {
             title={PUSH_UI[pushState].title}
             aria-label="Toggle phone notifications"
           >
-            {PUSH_UI[pushState].icon}
+            {pushState === "on" ? <BellIcon /> : <BellOffIcon />}
           </button>
           <button className="new-btn" onClick={() => setShowNew((v) => !v)} aria-label="New session">
-            {showNew ? "×" : "+"}
+            {showNew ? <CloseIcon /> : <PlusIcon />}
           </button>
         </div>
       </header>
@@ -257,7 +258,7 @@ export function SessionList() {
                   }
                 }}
               >
-                <span className={`caret-icon${open ? " open" : ""}`}>›</span>
+                <span className={`caret-icon${open ? " open" : ""}`}><ChevronRightIcon /></span>
                 <span className="group-title" title={g.cwd}>
                   {g.project}
                 </span>
@@ -275,7 +276,7 @@ export function SessionList() {
                       addToProject(g.cwd);
                     }}
                   >
-                    +
+                    <PlusIcon />
                   </button>
                   <button
                     className="grp-btn danger"
@@ -286,7 +287,7 @@ export function SessionList() {
                       removeProject(g);
                     }}
                   >
-                    🗑
+                    <TrashIcon />
                   </button>
                 </span>
               </div>
@@ -331,7 +332,7 @@ export function SessionList() {
                             remove(s);
                           }}
                         >
-                          🗑
+                          <TrashIcon />
                         </button>
                       </div>
                     </li>
