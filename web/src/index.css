@@ -263,6 +263,35 @@ body {
   align-items: center;
   gap: 8px;
 }
+.group-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.grp-btn {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--fg-faint);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.grp-btn:hover {
+  background: var(--hover);
+  color: var(--fg);
+  border-color: var(--border);
+}
+.grp-btn.danger:hover {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+}
 .row-del {
   flex: none;
   border: none;

@@ -62,10 +62,10 @@ export function renameSession(id: string, title: string): Promise<{ ok: true }> 
   return mutate(`/api/sessions/${encodeURIComponent(id)}`, "PATCH", { title });
 }
 
-
 export function deleteProject(cwd: string): Promise<{ ok: true; removed: number; skipped: number }> {
   return mutate(`/api/projects?cwd=${encodeURIComponent(cwd)}`, "DELETE");
 }
+
 function wsUrl(path: string): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   const token = getToken();

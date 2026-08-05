@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { createSession, deleteSession, fetchSessions } from "../api.ts";
+import { createSession, deleteProject, deleteSession, fetchSessions } from "../api.ts";
 import { humanBytes, relTime } from "../format.ts";
 import { navigate } from "../router.ts";
 import type { SessionListItem } from "../types.ts";
@@ -110,6 +110,39 @@ export function SessionList() {
     }
   }
 
+  async function addToProject(cwd: string) {
+    // Expand the group so the new session is visible once it registers.
+    setCollapsed((prev) => {
+      if (!prev.has(cwd)) return prev;
+      const next = new Set(prev);
+      next.delete(cwd);
+      return next;
+    });
+    try {
+      await createSession(cwd);
+      load();
+      for (const delay of [1200, 2600, 4200]) setTimeout(load, delay);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function removeProject(g: Group) {
+    const msg =
+      `Remove project "${g.project}"? This permanently deletes its ${g.items.length} ` +
+      `session${g.items.length === 1 ? "" : "s"} from disk. The directory itself is not touched.`;
+    if (!window.confirm(msg)) return;
+    try {
+      const res = await deleteProject(g.cwd);
+      await load();
+      if (res.skipped > 0) {
+        setError(`${res.skipped} live session${res.skipped === 1 ? "" : "s"} left running — stop them to remove.`);
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
   return (
     <div className="page">
       <header className="topbar">
@@ -158,14 +191,51 @@ export function SessionList() {
           const open = !collapsed.has(g.cwd);
           return (
             <section className="group" key={g.cwd}>
-              <button className="group-head" onClick={() => toggle(g.cwd)}>
+              <div
+                className="group-head"
+                role="button"
+                tabIndex={0}
+                onClick={() => toggle(g.cwd)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggle(g.cwd);
+                  }
+                }}
+              >
                 <span className={`caret-icon${open ? " open" : ""}`}>›</span>
-                <span className="group-title">{g.project}</span>
+                <span className="group-title" title={g.cwd}>
+                  {g.project}
+                </span>
                 <span className="group-meta">
                   {g.live > 0 && <span className="chip live">{g.live} live</span>}
                   <span className="subtle small">{g.items.length}</span>
                 </span>
-              </button>
+                <span className="group-actions">
+                  <button
+                    className="grp-btn"
+                    aria-label={`New session in ${g.project}`}
+                    title="New session here"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addToProject(g.cwd);
+                    }}
+                  >
+                    +
+                  </button>
+                  <button
+                    className="grp-btn danger"
+                    aria-label={`Remove project ${g.project}`}
+                    title="Remove project (deletes its sessions, not the directory)"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeProject(g);
+                    }}
+                  >
+                    🗑
+                  </button>
+                </span>
+              </div>
               {open && (
                 <ul className="list">
                   {g.items.map((s) => (
