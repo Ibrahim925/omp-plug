@@ -6,6 +6,7 @@ import { navigate } from "../router.ts";
 import { currentPushState, disablePush, enablePush, type PushState } from "../push.ts";
 import type { SessionListItem } from "../types.ts";
 import { BellIcon, BellOffIcon, ChevronRightIcon, CloseIcon, PlusIcon, TrashIcon } from "./icons.tsx";
+import { NewSessionForm } from "./NewSessionForm.tsx";
 
 const POLL_MS = 15_000;
 
@@ -33,10 +34,6 @@ export function SessionList() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const [showNew, setShowNew] = useState(false);
-  const [newCwd, setNewCwd] = useState("");
-  const [newTitle, setNewTitle] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [createErr, setCreateErr] = useState<string | null>(null);
 
   const [pushState, setPushState] = useState<PushState>("off");
   const [pushBusy, setPushBusy] = useState(false);
@@ -96,12 +93,6 @@ export function SessionList() {
     return [...map.values()].sort((a, b) => b.newest - a.newest);
   }, [sessions]);
 
-  const knownDirs = useMemo(() => {
-    const set = new Set<string>();
-    for (const s of sessions ?? []) if (s.cwd) set.add(s.cwd);
-    return [...set];
-  }, [sessions]);
-
   const liveCount = sessions?.filter((s) => s.controllable).length ?? 0;
 
   function toggle(cwd: string) {
@@ -113,30 +104,16 @@ export function SessionList() {
     });
   }
 
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
-    const cwd = newCwd.trim();
-    if (!cwd || creating) return;
-    setCreating(true);
-    setCreateErr(null);
-    try {
-      const { sessionId } = await createSession(cwd, newTitle.trim() || undefined);
-      setShowNew(false);
-      setNewCwd("");
-      setNewTitle("");
-      // Auto-open the new session's page once we know its id; otherwise fall
-      // back to a burst-refresh so it surfaces in the list on registration.
-      if (sessionId) {
-        navigate(`/s/${encodeURIComponent(sessionId)}`);
-        return;
-      }
-      load();
-      for (const delay of [1200, 2600, 4200]) setTimeout(load, delay);
-    } catch (err) {
-      setCreateErr((err as Error).message);
-    } finally {
-      setCreating(false);
+  function onCreated(sessionId?: string) {
+    setShowNew(false);
+    // Auto-open the new session's page once we know its id; otherwise fall back
+    // to a burst-refresh so it surfaces in the list on registration.
+    if (sessionId) {
+      navigate(`/s/${encodeURIComponent(sessionId)}`);
+      return;
     }
+    load();
+    for (const delay of [1200, 2600, 4200]) setTimeout(load, delay);
   }
 
   async function remove(s: SessionListItem) {
@@ -211,33 +188,7 @@ export function SessionList() {
         </div>
       </header>
 
-      {showNew && (
-        <form className="new-form" onSubmit={create}>
-          <input
-            className="new-input"
-            placeholder="Project directory (absolute path)"
-            list="omp-dirs"
-            value={newCwd}
-            onChange={(e) => setNewCwd(e.target.value)}
-            autoFocus
-          />
-          <datalist id="omp-dirs">
-            {knownDirs.map((d) => (
-              <option value={d} key={d} />
-            ))}
-          </datalist>
-          <input
-            className="new-input"
-            placeholder="Title (optional)"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-          />
-          {createErr && <div className="new-err">{createErr}</div>}
-          <button className="composer-btn send" type="submit" disabled={!newCwd.trim() || creating}>
-            {creating ? "Starting…" : "Start session"}
-          </button>
-        </form>
-      )}
+      {showNew && <NewSessionForm onClose={() => setShowNew(false)} onCreated={onCreated} />}
 
       {error && <div className="banner error">Could not load sessions — {error}</div>}
 

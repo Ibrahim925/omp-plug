@@ -34,6 +34,19 @@ export interface SlashCommand {
   description?: string;
 }
 
+/** One directory returned by the cwd path browser. */
+export interface DirEntry {
+  name: string;
+  path: string;
+}
+
+/** A directory listing for the cwd path browser: children of `base`. */
+export interface DirListing {
+  base: string;
+  parent: string | null;
+  entries: DirEntry[];
+}
+
 export interface TranscriptResponse {
   id: string;
   cwd: string;

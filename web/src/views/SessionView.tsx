@@ -9,6 +9,16 @@ import { CheckIcon, ChevronLeftIcon, CloseIcon, PaperclipIcon, PencilIcon, StopI
 const REFETCH_THROTTLE_MS = 1200;
 const FALLBACK_POLL_MS = 5000;
 
+// Case-insensitive subsequence test for the slash-command fuzzy match: every
+// char of `needle` appears in `hay` in order ("gwv" -> "git-worktrees").
+function subseq(needle: string, hay: string): boolean {
+  let i = 0;
+  for (let j = 0; j < hay.length && i < needle.length; j++) {
+    if (hay[j] === needle[i]) i += 1;
+  }
+  return i === needle.length;
+}
+
 export function SessionView({ id }: { id: string }) {
   const [data, setData] = useState<TranscriptResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -278,13 +288,23 @@ export function SessionView({ id }: { id: string }) {
     }
   }
 
-  // Slash-command autocomplete: active while the input is a single "/token"
-  // (no whitespace), matched against the live session's advertised commands.
+  // Slash-command autocomplete: active while the input is a single "/token" (no
+  // whitespace), fuzzy-matched against the live session's advertised commands.
+  // Rank exact > prefix > substring > subsequence so the closest surfaces first
+  // ("/wt" finds "worktrees", "/gitcommit" finds "git-commit").
   const suggestions = useMemo(() => {
     const match = input.match(/^\/(\S*)$/);
     if (!match || !data?.commands?.length) return [];
     const q = match[1].toLowerCase();
-    return data.commands.filter((c) => c.name.toLowerCase().startsWith(q)).slice(0, 8);
+    if (!q) return data.commands.slice(0, 8);
+    const scored: { c: (typeof data.commands)[number]; score: number }[] = [];
+    for (const c of data.commands) {
+      const name = c.name.toLowerCase();
+      const score = name === q ? 0 : name.startsWith(q) ? 1 : name.includes(q) ? 2 : subseq(q, name) ? 3 : -1;
+      if (score >= 0) scored.push({ c, score });
+    }
+    scored.sort((a, b) => a.score - b.score || a.c.name.localeCompare(b.c.name));
+    return scored.slice(0, 8).map((s) => s.c);
   }, [input, data?.commands]);
 
   const acActive = Math.min(acIndex, Math.max(0, suggestions.length - 1));

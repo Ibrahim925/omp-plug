@@ -2,6 +2,7 @@
 //   GET  /api/health                     -> liveness
 //   GET  /api/sessions                   -> session list (all projects, newest first)
 //   GET  /api/sessions/:id               -> rendered transcript
+//   GET  /api/fs?path=                   -> directory listing for the new-session cwd picker
 //   POST /api/sessions/:id/command       -> route a control command to a live session
 //   WS   /ws/agent                       -> omp-report extension ingest + command dispatch
 //   WS   /ws/client                      -> browser live event stream
@@ -13,6 +14,7 @@ import type { Server, ServerWebSocket } from "bun";
 
 import { AUTH } from "./auth.ts";
 import { deleteSession, getTranscript, listSessions, renameSession, resumeInfo } from "./history.ts";
+import { listDirectories } from "./fs.ts";
 import {
   commandSchema,
   dispatchCommand,
@@ -169,6 +171,14 @@ function start(): Server {
       if (pathname === "/api/push/test" && req.method === "POST") {
         await notify({ title: "omp-plug", body: "Test notification — you're all set.", url: "/" });
         return json({ ok: true, subscriptions: subscriptionCount() });
+      }
+      // Directory browser for the new-session cwd picker (directories only).
+      if (pathname === "/api/fs") {
+        try {
+          return json(listDirectories(url.searchParams.get("path")));
+        } catch (err) {
+          return json({ error: (err as Error).message }, 400);
+        }
       }
       if (pathname === "/api/sessions") {
         if (req.method === "POST") {

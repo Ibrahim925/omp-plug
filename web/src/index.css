@@ -263,6 +263,101 @@ body {
   color: var(--danger);
   font-size: 13px;
 }
+.new-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.new-form .new-actions .composer-btn {
+  height: 40px;
+}
+
+/* ---- fuzzy pickers (directory + skills) in the new-session form ---- */
+.picker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.picker-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg);
+  max-height: 244px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.picker-ctx {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.picker-base {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dir-up {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.dir-up:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+.picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.picker-empty {
+  padding: 10px 12px;
+  color: var(--fg-faint);
+  font-size: 13px;
+}
+.dir-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+  padding: 9px 11px;
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  font: 13px var(--sans);
+  text-align: left;
+  cursor: pointer;
+}
+.dir-row:hover {
+  background: var(--hover);
+}
+.dir-ico {
+  flex: none;
+  color: var(--fg-faint);
+}
+.dir-name {
+  font-family: var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* ---- project groups ---- */
 .groups {

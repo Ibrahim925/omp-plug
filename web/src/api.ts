@@ -1,4 +1,4 @@
-import type { Command, LiveEvent, ServerToClient, SessionListItem, TranscriptResponse } from "./types.ts";
+import type { Command, DirListing, LiveEvent, ServerToClient, SessionListItem, TranscriptResponse } from "./types.ts";
 import { getToken, notifyAuthRequired } from "./token.ts";
 
 function authHeaders(extra?: Record<string, string>): Record<string, string> {
@@ -52,6 +52,11 @@ async function mutate<T>(path: string, method: string, body?: unknown): Promise<
 
 export function createSession(cwd: string, title?: string): Promise<{ ok: true; pid: number; sessionId?: string }> {
   return mutate("/api/sessions", "POST", { cwd, title });
+}
+
+export function fetchDirs(path?: string): Promise<DirListing> {
+  const q = path ? `?path=${encodeURIComponent(path)}` : "";
+  return getJson<DirListing>(`/api/fs${q}`);
 }
 
 export function deleteSession(id: string): Promise<{ ok: true }> {

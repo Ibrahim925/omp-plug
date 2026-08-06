@@ -88,6 +88,12 @@ export const ChevronLeftIcon = ({ className }: P) => (
   </Svg>
 );
 
+export const FolderIcon = ({ className }: P) => (
+  <Svg className={className}>
+    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+  </Svg>
+);
+
 export const PaperclipIcon = ({ className }: P) => (
   <Svg className={className}>
     <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
