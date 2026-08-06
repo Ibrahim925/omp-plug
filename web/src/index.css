@@ -1378,6 +1378,48 @@ pre {
   color: var(--danger);
   font-size: 12px;
 }
+.composer-btn.mic {
+  width: 42px;
+  padding: 0;
+  font-size: 20px;
+  background: var(--panel);
+  color: var(--fg-muted);
+  border-color: var(--border);
+}
+.composer-btn.mic.on {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+  animation: mic-pulse 1.4s ease-in-out infinite;
+}
+@keyframes mic-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 55%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+.dictation-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 0;
+  font-size: 13px;
+  color: var(--fg-muted);
+}
+.dictation-note.error {
+  color: var(--danger);
+}
+.dictation-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: mic-pulse 1.4s ease-in-out infinite;
+}
 
 /* ---- auth gate ---- */
 .gate {

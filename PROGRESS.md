@@ -24,6 +24,8 @@ what a verification command actually confirmed.
   add/remove — all verified end to end (HTTP + headless browser).
 - **Start:** `make dev` then open `http://<host>:7317` (token from
   `~/.omp-plug.json`); or `make dev-web` for the Vite UI with HMR.
+- **Last shipped:** `voice-input` (composer dictation via the Web Speech API) —
+  passing, verified in-browser 2026-08-06.
 - **Next priority:** finish the device-side verification of `push-notifications`
   (serve over HTTPS, enable the bell on a phone), or pick the first remaining
   `not_started` row in `feature_list.json` (suggest `ws-dev-proxy`).
@@ -31,6 +33,34 @@ what a verification command actually confirmed.
   they are Bun-runtime TS with no author-time SDK types; see DECISIONS.md.)
 
 ## Session Records
+
+### 2026-08-06 (feature) — Voice input (dictation) in the composer
+- Outcome: done + verified end to end.
+- Did: added browser-native voice dictation to the session composer. New
+  `web/src/speech.ts` `useDictation(onFinal)` hook wraps the Web Speech API
+  (`SpeechRecognition`/`webkitSpeechRecognition`): feature-detects + requires a
+  secure context, streams interim + final results, restarts the recognizer on
+  silence auto-end for continuous hands-free dictation, and surfaces real errors
+  (mic permission denied) while ignoring benign `no-speech`/`aborted`. Wired a
+  mic toggle into `SessionView`'s composer (new `MicIcon`) that appends each
+  finalized chunk to the message box with correct spacing, shows a
+  "Listening…"/interim note, stops on submit, and tears down on unmount. CSS for
+  `.composer-btn.mic`(+`.on` pulse) and `.dictation-note`. Client-only — no new
+  dependency, no server/wire change. Docs: README feature, feature_list
+  `voice-input` row.
+- Verification run: `make lint` (tsc web clean) + `make test` (bun 1/1) green.
+  E2E in headless Chrome against the REAL `useDictation` hook with a fake
+  `SpeechRecognition`: support+secure detection true → mic renders; toggle →
+  listening + `.on`; interim preview updates; final chunk appends with spacing
+  ("hello" → "hello one two three"); silence auto-end restarts the recognizer;
+  a post-restart final still appends ("four"); stop clears listening; error path
+  shows "Microphone permission denied" on `not-allowed` and ignores `no-speech`.
+  Did NOT run: a real device mic over Tailscale HTTPS (needs a phone + secure
+  origin), but the browser API path is proven with a faithful fake.
+- Risks / follow-ups: recognition quality/availability is the browser's (Chrome
+  uses Google's service; iOS Safari supports `webkitSpeechRecognition` from
+  ~14.5 but ignores `continuous` — the restart-on-end loop covers that). Over
+  plain HTTP the mic is hidden (no secure context), same constraint as push.
 
 ### 2026-08-05 (chore) — Open-source readiness
 - Outcome: done. Repo prepped for public use/fork/contribution and pushed.

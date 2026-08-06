@@ -3,8 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { deleteSession, fetchTranscript, renameSession, resumeSession, sendCommand, subscribeLive } from "../api.ts";
 import { navigate } from "../router.ts";
 import type { AskAnswerResult, ImagePayload, LiveEvent, TranscriptResponse } from "../types.ts";
+import { useDictation } from "../speech.ts";
 import { Transcript } from "./Message.tsx";
-import { CheckIcon, ChevronLeftIcon, CloseIcon, PaperclipIcon, PencilIcon, StopIcon, TrashIcon } from "./icons.tsx";
+import { CheckIcon, ChevronLeftIcon, CloseIcon, MicIcon, PaperclipIcon, PencilIcon, StopIcon, TrashIcon } from "./icons.tsx";
 
 const REFETCH_THROTTLE_MS = 1200;
 const FALLBACK_POLL_MS = 5000;
@@ -45,6 +46,15 @@ export function SessionView({ id }: { id: string }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const resumedFor = useRef<string | null>(null);
+
+  // Voice input: each finalized chunk is appended to the composer, spaced from
+  // whatever the user already typed. Recognition runs entirely in the browser.
+  const appendTranscript = useCallback((chunk: string) => {
+    const text = chunk.trim();
+    if (!text) return;
+    setInput((prev) => (prev && !/\s$/.test(prev) ? `${prev} ` : prev) + text);
+  }, []);
+  const dictation = useDictation(appendTranscript);
 
   const doFetch = useCallback(async () => {
     lastFetch.current = Date.now();
@@ -208,6 +218,7 @@ export function SessionView({ id }: { id: string }) {
   async function submit() {
     const text = input.trim();
     if ((!text && attachments.length === 0) || sending) return;
+    dictation.stop();
     setSending(true);
     stick.current = true;
     try {
@@ -456,6 +467,18 @@ export function SessionView({ id }: { id: string }) {
               ))}
             </div>
           )}
+          {(dictation.listening || dictation.error) && (
+            <div className={`dictation-note${dictation.error ? " error" : ""}`}>
+              {dictation.error ? (
+                dictation.error
+              ) : (
+                <>
+                  <span className="dictation-dot" />
+                  {dictation.interim || "Listening…"}
+                </>
+              )}
+            </div>
+          )}
           <div className="composer">
             <input
               ref={fileInput}
@@ -476,6 +499,17 @@ export function SessionView({ id }: { id: string }) {
             >
               <PaperclipIcon />
             </button>
+            {dictation.supported && (
+              <button
+                type="button"
+                className={`composer-btn mic${dictation.listening ? " on" : ""}`}
+                onClick={dictation.toggle}
+                aria-label={dictation.listening ? "Stop dictation" : "Start dictation"}
+                aria-pressed={dictation.listening}
+              >
+                <MicIcon />
+              </button>
+            )}
             <textarea
               ref={textarea}
               value={input}

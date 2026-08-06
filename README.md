@@ -40,6 +40,7 @@ The part that makes it real is a small extension (`omp-report`) that loads *insi
 - **Real control of a running session** — prompt, steer mid-turn, abort, and answer a native `ask` dialog straight from the browser.
 - **Full session lifecycle**: create a session in any directory, rename it (live or on disk), resume an inactive one so it's queryable again, and delete it safely. A session the server didn't spawn is never killed.
 - **Shell escapes** from the composer: `!cmd` runs a shell command in the session's cwd and feeds the output back to the agent next turn; `!!cmd` is a private peek that the agent never sees.
+- **Voice input**: a mic button in the composer dictates hands-free — speak and the words are transcribed in the browser (Web Speech API) and dropped into the message box. Needs a secure context (HTTPS/localhost); hidden where unsupported.
 - **Web Push to your phone** when a session goes idle or raises a question, deep-linking straight to it. Installable as a PWA.
 
 ## How it fits together

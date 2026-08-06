@@ -170,6 +170,16 @@
       "verification": ["server: subscribe a valid P-256 subscription then POST /api/push/test and confirm the push service receives a POST with Content-Encoding: aes128gcm + Authorization: vapid", "device: serve over HTTPS (tailscale serve), enable the bell on a phone, and confirm a notification lands when a session finishes"],
       "evidence": "2026-08-05 server path verified end-to-end: isolated server + TLS capture endpoint received POST ce=aes128gcm authScheme=vapid ttl=600 body=180B, VAPID key generated+persisted to ~/.omp-plug-push.json, subscribe/test routes ok; make check green (tsc + bun test). NOT yet run: real browser/phone round-trip (needs HTTPS secure context)",
       "notes": "web-push dep; triggers reuse idle + ask toolStart (no wire-shape change); needs HTTPS + a real device for the final subscribe->receipt pass"
+    },
+    {
+      "id": "voice-input",
+      "area": "web",
+      "title": "Voice input (dictation) in the composer",
+      "user_visible_behavior": "A mic button in the session composer toggles hands-free dictation; spoken words are transcribed in the browser and appended to the message box, with a live 'Listening…'/interim preview. Hidden where unsupported or over plain HTTP.",
+      "status": "passing",
+      "verification": ["make lint (tsc web clean)", "browser: render the composer, click the mic, speak, confirm transcribed text lands in the message box and the mic shows a listening state"],
+      "evidence": "2026-08-06 verified end-to-end in headless Chrome against the real useDictation hook with a fake SpeechRecognition: support+secure-context detection true, toggle->listening, interim preview updates, final chunk appends with correct spacing ('hello' -> 'hello one two three'), silence auto-end restarts the recognizer (continuous dictation), stop clears listening; error path surfaces 'Microphone permission denied' on not-allowed and ignores benign no-speech/aborted. make lint + make test green.",
+      "notes": "Browser-native Web Speech API (SpeechRecognition/webkitSpeechRecognition); client-only, no dependency, no wire-shape change. Requires a secure context (HTTPS/localhost), same constraint as push. web/src/speech.ts (useDictation hook)."
     }
   ]
 }
