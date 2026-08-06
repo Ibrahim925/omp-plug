@@ -240,17 +240,22 @@ export function SessionView({ id }: { id: string }) {
     }
   }
 
-  async function onAnswer(text: string, results?: AskAnswerResult[]) {
-    stick.current = true;
-    try {
-      await sendCommand(id, { type: "answer", text, results });
-      setWorking(true);
-    } catch (err) {
-      setError((err as Error).message);
-    }
-  }
+  // Stable across keystrokes so the memoized <Transcript> doesn't re-render (and
+  // re-parse every message's markdown) while the composer input changes.
+  const onAnswer = useCallback(
+    async (text: string, results?: AskAnswerResult[]) => {
+      stick.current = true;
+      try {
+        await sendCommand(id, { type: "answer", text, results });
+        setWorking(true);
+      } catch (err) {
+        setError((err as Error).message);
+      }
+    },
+    [id],
+  );
 
-  async function onDismiss() {
+  const onDismiss = useCallback(async () => {
     stick.current = true;
     try {
       await sendCommand(id, { type: "dismiss" });
@@ -258,7 +263,7 @@ export function SessionView({ id }: { id: string }) {
     } catch (err) {
       setError((err as Error).message);
     }
-  }
+  }, [id]);
 
   async function stop() {
     try {

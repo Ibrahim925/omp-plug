@@ -34,6 +34,28 @@ what a verification command actually confirmed.
 
 ## Session Records
 
+### 2026-08-06 (fix) — Composer typing latency (transcript re-parse on keystroke)
+- Outcome: done + measured.
+- Problem: typing in the composer was sluggish. `input` lives in `SessionView`,
+  so every keystroke re-rendered the whole view, including `<Transcript>` —
+  which is un-memoized and re-parses every message through react-markdown +
+  rehype-highlight on each render. On a long conversation that is tens of ms of
+  synchronous work per character.
+- Did: `memo()` around `Transcript` (Message.tsx) and wrapped `onAnswer`/
+  `onDismiss` in `SessionView` with `useCallback([id])` so the memo's shallow
+  prop compare holds (messages ref + controllable were already stable). Keystrokes
+  now change only local composer state; the transcript subtree bails out of
+  rendering entirely.
+- Verification run: `make check` green (tsc web clean, bun test 1/1). Measured in
+  headless Chrome with a React `Profiler` around the REAL `Transcript` (40
+  markdown-heavy messages) beside a live textarea: mount commit = 89 ms of render
+  work; each of 20 keystrokes = ≤0.1 ms (avg 0.025 ms) — the transcript no longer
+  re-parses on keystroke (before, every keystroke paid the full ~89 ms render).
+- Risks / follow-ups: a data refetch still rebuilds message objects (new refs),
+  so the transcript re-parses then — expected and infrequent (throttled). A
+  future win is memoizing `Markdown`/`Message` by text so unchanged messages skip
+  re-parse across refetches, but it's not needed for the typing path.
+
 ### 2026-08-06 (feature) — Voice input (dictation) in the composer
 - Outcome: done + verified end to end.
 - Did: added browser-native voice dictation to the session composer. New

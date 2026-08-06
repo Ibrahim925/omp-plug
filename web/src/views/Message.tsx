@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
@@ -403,7 +403,7 @@ export function Message({ message, results, controllable, isLast, onAnswer, onDi
 // Groups a flat message list into renderable units: tool-result messages are
 // hoisted onto their originating tool call, so each tool round-trip renders as a
 // single collapsible unit instead of a wall of raw output.
-export function Transcript({
+export const Transcript = memo(function Transcript({
   messages,
   controllable,
   onAnswer,
@@ -444,4 +444,4 @@ export function Transcript({
       ))}
     </>
   );
-}
+});
